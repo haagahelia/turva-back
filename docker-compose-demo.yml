@@ -1,0 +1,15 @@
+services:
+  app:
+  # set container name
+    container_name: "turva_backend"
+
+  # build image from dockerfile in the current directory
+    build:
+      context: .
+      dockerfile: demo.Dockerfile
+
+    # map container port to host 
+    ports:
+      - "3000:3000"
+
+
