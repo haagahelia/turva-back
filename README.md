@@ -29,3 +29,5 @@ Backend api server for the TurvaApp
     npm run dev
     ```
 
+### Tech Stack
+Developed by TypeScript and Node
