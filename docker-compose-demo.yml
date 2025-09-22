@@ -1,7 +1,7 @@
 services:
   app:
   # set container name
-    container_name: "turva_backend"
+    container_name: turva-backend
 
   # build image from dockerfile in the current directory
     build:
@@ -12,4 +12,15 @@ services:
     ports:
       - "3000:3000"
 
+  postgres:
+    image: postgres:latest
+    container_name: turva-database
+    ports:
+      - "5432:5432"
 
+    # use example.sql to create a database with example data
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d
+
+    # store `POSTGRES_PASSWORD` in .env
+    env_file: ".env"
