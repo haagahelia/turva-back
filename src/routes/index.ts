@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { pool } from "../db";
 
 const router = Router();
@@ -19,6 +19,26 @@ router.get("/info", async (_req, res) => {
         console.error("Error in query:", err);
         res.status(500).json({ error: "Database query failed" });
 
+    }
+});
+
+router.delete("/info/:id", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            "DELETE FROM info WHERE id = $1 RETURNING *",
+            [id]
+        );
+
+        if (result.rowCount === 0) {
+            res.status(404).json({ error: "ID not found" });
+            return;
+        }
+
+        res.json({ message: "Deleted successfully", deleted: result.rows[0] })
+    } catch (err) {
+        console.error("Delete failed", err);
+        res.status(500).json({ error: "Delete failed" });
     }
 });
 
