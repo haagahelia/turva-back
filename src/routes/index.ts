@@ -42,4 +42,24 @@ router.delete("/info/:id", async (req: Request, res: Response): Promise<void> =>
     }
 });
 
+router.post('/info', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { title, content } = req.body;
+
+        if (!title || !content) {
+            res.status(400).json({ error: "Title or content missing" });
+            return;
+        }
+
+        const result = await pool.query(
+            "INSERT INTO info (title, content) VALUES ($1, $2) RETURNING *", [title, content]
+        );
+
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error("Insert failed", err);
+        res.status(500).json({ error: "Insert failed" });
+    }
+});
+
 export default router;
