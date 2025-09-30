@@ -42,7 +42,7 @@ router.delete("/info/:id", async (req: Request, res: Response): Promise<void> =>
     }
 });
 
-router.post('/info', async (req: Request, res: Response): Promise<void> => {
+router.post("/info", async (req: Request, res: Response): Promise<void> => {
     try {
         const { title, content } = req.body;
 
@@ -60,6 +60,33 @@ router.post('/info', async (req: Request, res: Response): Promise<void> => {
         console.error("Insert failed", err);
         res.status(500).json({ error: "Insert failed" });
     }
+});
+
+router.put("/info/:id", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { title, content } = req.body;
+
+        if (!title || !content) {
+            res.status(400).json({ error: "Title or content missing" });
+            return;
+        }
+
+        const result = await pool.query(
+            "UPDATE info SET title = $1, content = $2, created_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *", [title, content, id]
+        );
+
+        if (result.rowCount === 0) {
+            res.status(400).json({ error: "ID not found" });
+            return;
+        }
+
+        res.json({ message: "Updated successfully", updated: result.rows[0] });
+    } catch (err) {
+        console.error("Update failed:", err);
+        res.status(500).json({ error: "Update failed" });
+    }
+
 });
 
 export default router;
