@@ -5,6 +5,14 @@ CREATE TABLE IF NOT EXISTS info (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS email_otps (
+    otp_id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    otp_code VARCHAR(255) NOT NULL,
+    valid_until TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 INSERT INTO info (title, content) VALUES
 ('Title 1', 'Content 1'),
 ('Title 2', 'Content 2'),
