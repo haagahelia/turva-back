@@ -25,4 +25,5 @@ services:
       - ./sql:/docker-entrypoint-initdb.d
 
     # store `POSTGRES_PASSWORD` in .env
-    env_file: ".env"
+    env_file: 
+    - ".env"

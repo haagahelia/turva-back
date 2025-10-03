@@ -16,7 +16,7 @@ export const pool = new Pool({
     port: 5432,
 });
 
-(async () => {
+export const connectDB = async () => {
     try {
         const client = await pool.connect();
         console.log("✅ Connected to Postgres successfully");
@@ -24,4 +24,4 @@ export const pool = new Pool({
     } catch (err) {
         console.error("❌ Postgres connection failed:", err);
     }
-})();
+};
