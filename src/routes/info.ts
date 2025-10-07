@@ -3,7 +3,7 @@ import { pool } from "../config/db";
 
 const router = Router();
 
-router.get("/info", async (_req, res) => {
+router.get("/", async (_req, res) => {
     try {
         const result = await pool.query("SELECT * FROM info ORDER BY id;");
         res.json(result.rows);
@@ -14,7 +14,7 @@ router.get("/info", async (_req, res) => {
     }
 });
 
-router.delete("/info/:id", async (req: Request, res: Response): Promise<void> => {
+router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
         const result = await pool.query(
@@ -34,7 +34,7 @@ router.delete("/info/:id", async (req: Request, res: Response): Promise<void> =>
     }
 });
 
-router.post("/info", async (req: Request, res: Response): Promise<void> => {
+router.post("/", async (req: Request, res: Response): Promise<void> => {
     try {
         const { title, content } = req.body;
 
@@ -54,7 +54,7 @@ router.post("/info", async (req: Request, res: Response): Promise<void> => {
     }
 });
 
-router.put("/info/:id", async (req: Request, res: Response): Promise<void> => {
+router.put("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
         const { title, content } = req.body;
