@@ -10,7 +10,20 @@ router.get("/", async (_req, res) => {
     } catch (err) {
         console.error("Error in query:", err);
         res.status(500).json({ error: "Database query failed" });
+    }
+});
 
+router.get("/:id", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            "SELECT * FROM info WHERE id = $1",
+            [id]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error in query:", err);
+        res.status(500).json({ error: "Database query failed" });
     }
 });
 
