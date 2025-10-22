@@ -1,6 +1,6 @@
 # turva-back
 
-Backend api server for the TurvaApp
+Backend API server for the TurvaApp
 
 ## Project Setup
 
