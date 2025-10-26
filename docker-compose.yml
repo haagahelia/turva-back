@@ -6,7 +6,7 @@ services:
   # build image from dockerfile in the current directory
     build:
       context: .
-      dockerfile: demo.Dockerfile
+      dockerfile: Dockerfile
 
     # map container port to host 
     ports:
