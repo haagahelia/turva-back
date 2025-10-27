@@ -3,6 +3,20 @@ import { pool } from "../config/db";
 
 const router = Router();
 
+/** 
+ * @openapi
+ * /api/info:
+ *   get:
+ *     description: Selects all from info, orders them by id and returns json
+ *     tags:
+ *       - Info
+ *     responses:
+ *       '200':
+ *         description: OK
+ *       '500':
+ *         description: Database query failed
+*/
+
 router.get("/", async (_req, res) => {
     try {
         const result = await pool.query("SELECT * FROM info ORDER BY id;");
