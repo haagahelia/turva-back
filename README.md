@@ -8,28 +8,7 @@ Backend API server for the TurvaApp
 
 - [Node.js](https://nodejs.org/) v18 or higher
 - npm
-- [Docker](https://docs.docker.com/) (optional)
-
-### Installation
-
-1. Clone the repository
-
-    ```bash
-    git clone https://github.com/haagahelia/turva-back.git
-    cd turva-back
-    ```
-
-2. Install dependencies
-
-    ```bash
-    npm install
-    ```
-
-3. Run development server
-
-    ```bash
-    npm run dev
-    ```
+- [Docker](https://docs.docker.com/)
 
 ### Installation with Docker
 
@@ -40,21 +19,16 @@ Backend API server for the TurvaApp
     cd turva-back
     ```
 
-2. Create a `.env` file (e.g. `vim .env` or `nano .env`)
-and add the required values:
+2. Set environmental variables
 
     ```bash
-    POSTGRES_USER=
-    POSTGRES_PASSWORD=
-    POSTGRES_DB=
-    POSTGRES_HOST=
-    POSTGRES_PORT=
+    cp .env.example .env
     ```
 
 3. Build and run the project
 
     ```bash
-    docker compose -f docker-compose-demo.yml up --build
+    docker compose up
     ```
 
 ### Tech Stack

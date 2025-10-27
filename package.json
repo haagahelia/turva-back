@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint .",
-    "dev": "ts-node-dev --poll -r tsconfig-paths/register src/index.ts -e .env.local",
+    "dev": "ts-node-dev --poll -r tsconfig-paths/register src/index.ts -e .env",
     "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --outdir=build --loader:.html=text",
     "start": "node build/index.js"
   },
