@@ -8,6 +8,31 @@ import { sendEmail } from "@/utils/emailer";
 
 const router = Router();
 
+/** 
+ * @openapi
+ * /api/auth/login/:
+ *   post:
+ *     summary: Email based login
+ *     description: Sends a code to provided email address that is used for login and also saves it to database
+ *     requestBody:
+ *       description: User email
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: example@school.fi
+ *     tags:
+ *       - Login
+ *     responses:
+ *       '200':
+ *         description: Email sent
+ *       '400':
+ *         description: No email received or not valid
+*/
+
 router.post("/login", async (req, res) => {
     const userEmail = req.body.email;
     if (!userEmail) {
@@ -28,6 +53,36 @@ router.post("/login", async (req, res) => {
     sendEmail(userEmail, oneTimePin);
     return res.status(200).json("Login email sent to " + userEmail);
 });
+
+/** 
+ * @openapi
+ * /api/auth/verify:
+ *   post:
+ *     summary: Login token
+ *     description: Send the varification code from email login to get a JWT token and login. Will check if code and email match
+ *     requestBody:
+ *       description: Verification code
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: example@school.fi
+ *               verificationCode:
+ *                 type: string
+ *                 example: code
+ *     tags:
+ *       - Login
+ *     responses:
+ *       '200':
+ *         description: Login successful
+ *       '400':
+ *         description: No verification code received
+ *       '401':
+ *         description: Code is invalid
+*/
 
 router.post("/verify", async (req, res) => {
     const email = req.body.email;

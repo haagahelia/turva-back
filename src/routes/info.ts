@@ -7,9 +7,10 @@ const router = Router();
  * @openapi
  * /api/info:
  *   get:
+ *     summary: Returns all info pages
  *     description: Selects all from info, orders them by id and returns json
  *     tags:
- *       - Info
+ *       - Info Page
  *     responses:
  *       '200':
  *         description: OK
@@ -26,6 +27,30 @@ router.get("/", async (_req, res) => {
         res.status(500).json({ error: "Database query failed" });
     }
 });
+
+/** 
+ * @openapi
+ * /api/info/{id}:
+ *   get:
+ *     summary: Get info page by ID
+ *     description: Selects all from info where the ID matches the provided ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: Numeric ID of the info to get
+ *     tags:
+ *       - Info Page
+ *     responses:
+ *       '200':
+ *         description: OK
+ *       '404':
+ *         description: ID not found
+ *       '500':
+ *         description: Database query failed
+*/
 
 router.get("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
@@ -45,6 +70,30 @@ router.get("/:id", async (req: Request, res: Response): Promise<void> => {
     }
 });
 
+/** 
+ * @openapi
+ * /api/info/{id}:
+ *   delete:
+ *     summary: Delete info page by ID
+ *     description: Delete info page where the ID you give matches the ID of the info page you want to delete
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: Numeric ID of the info page you want to get
+ *     tags:
+ *       - Info Page
+ *     responses:
+ *       '200':
+ *         description: OK
+ *       '404':
+ *         description: ID not found
+ *       '500':
+ *         description: Delete failed
+*/
+
 router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
@@ -63,6 +112,36 @@ router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
     }
 });
 
+/** 
+ * @openapi
+ * /api/info:
+ *   post:
+ *     summary: Add new info to db
+ *     description: Insert into info
+ *     requestBody:
+ *       description: title and content
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: New Page Title
+ *               content:
+ *                 type: string
+ *                 example: New page content
+ *     tags:
+ *       - Info Page
+ *     responses:
+ *       '201':
+ *         description: Created
+ *       '400':
+ *         description: Title or content missing
+ *       '500':
+ *         description: Insert failed
+*/
+
 router.post("/", async (req: Request, res: Response): Promise<void> => {
     try {
         const { title, content } = req.body;
@@ -80,6 +159,44 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
         res.status(500).json({ error: "Insert failed" });
     }
 });
+
+/** 
+ * @openapi
+ * /api/info/{id}:
+ *   put:
+ *     summary: Update info
+ *     description: Update info page where ID matches
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: Numeric ID of the info to update
+ *     requestBody:
+ *       description: title and content
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: New Page Title
+ *               content:
+ *                 type: string
+ *                 example: New page content
+ *     tags:
+ *       - Info Page
+ *     responses:
+ *       '201':
+ *         description: Created
+ *       '400':
+ *         description: Title or content missing
+ *       '500':
+ *         description: Insert failed
+*/
 
 router.put("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
