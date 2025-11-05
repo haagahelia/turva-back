@@ -3,6 +3,7 @@ dotenv.config();
 
 import createApp from "./app";
 import { connectDB } from "./config/db";
+import swaggerDocs from './utils/swagger';
 
 const port = 3000;
 
@@ -13,6 +14,7 @@ const startServer = async () => {
 
     app.listen(port, () => {
         console.log(`Server running on port ${port}`);
+        swaggerDocs(app, port);
     });
 };
 
