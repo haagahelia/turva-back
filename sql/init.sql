@@ -13,6 +13,15 @@ CREATE TABLE IF NOT EXISTS email_otps (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS quiz (
+    quiz_id SERIAL PRIMARY KEY,
+    world_id INT NOT NULL,
+    quiz_name VARCHAR(255) NOT NULL,
+    quiz_content JSON,
+    order_number BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 INSERT INTO info (title, content) VALUES
 ('Title 1', 'Content 1'),
 ('Title 2', 'Content 2'),
