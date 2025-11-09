@@ -13,6 +13,24 @@ router.get("/", async (_req, res) => {
     }
 });
 
+router.get("/:id", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            "SELECT * FROM quiz WHERE quiz_id = $1",
+            [id]
+        );
+        if (result.rowCount === 0) {
+            res.status(404).json({ error: "ID not found" });
+            return;
+        };
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error in query:", err);
+        res.status(500).json({ error: "Database query failed" });
+    }
+});
+
 router.post("/", async (req: Request, res: Response): Promise<void> => {
     try {
         const { world_id, quiz_name, quiz_content, order_number } = req.body;
