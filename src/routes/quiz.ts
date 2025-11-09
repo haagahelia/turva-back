@@ -49,4 +49,22 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
     }
 });
 
+router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            "DELETE FROM quiz WHERE quiz_id = $1 RETURNING *",
+            [id]
+        );
+        if (result.rowCount === 0) {
+            res.status(404).json({ error: "ID not found" });
+            return;
+        };
+        res.json({ message: "Deleted successfully", deleted: result.rows[0] });
+    } catch (err) {
+        console.error("Delete failed", err);
+        res.status(500).json({ error: "Delete failed" });
+    }
+});
+
 export default router;
