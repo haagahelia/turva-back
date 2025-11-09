@@ -67,4 +67,27 @@ router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
     }
 });
 
+router.put("/:id", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { world_id, quiz_name, quiz_content, order_number } = req.body;
+        if (!world_id || !quiz_name || !order_number) {
+            res.status(400).json({ error: "world_id, quiz_name or order_number missing" });
+            return;
+        };
+        const result = await pool.query(
+            "UPDATE quiz SET world_id = $1, quiz_name = $2,quiz_content = $3, order_number = $4, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $5 RETURNING *",
+            [world_id, quiz_name, quiz_content, order_number, id]
+        );
+        if (result.rowCount === 0) {
+            res.status(400).json({ error: "ID not found" });
+            return;
+        };
+        res.json({ message: "Updated successfully", updated: result.rows[0] });
+    } catch (err) {
+        console.error("Update failed:", err);
+        res.status(500).json({ error: "Update failed" });
+    }
+});
+
 export default router;
