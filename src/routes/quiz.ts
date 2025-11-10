@@ -69,4 +69,103 @@ router.get("/:world_id", async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+/** 
+ * @openapi
+ * /api/quiz:
+ *   post:
+ *     summary: Add new quiz to db
+ *     description: Insert into quiz
+ *     requestBody:
+ *       description: title and content
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             properties:
+ *               world_id:
+ *                 type: integer
+ *                 example: 1
+ *               quiz_name:
+ *                 type: string
+ *                 example: New Quiz
+ *               order_number:
+ *                 type: integer
+ *                 example: 1
+ *     tags:
+ *       - Quiz
+ *     responses:
+ *       '201':
+ *         description: Created
+ *       '400':
+ *         description: world_id, quiz_name or order_number missing
+ *       '500':
+ *         description: Insert failed
+*/
+
+router.post("/", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { world_id, quiz_name, order_number } = req.body;
+        if (!world_id || !quiz_name || !order_number) {
+            res.status(400).json({ error: "world_id, quiz_name or order_number missing" });
+            return;
+        };
+        const result = await pool.query(
+            "INSERT INTO Quiz (world_id, quiz_name, order_number) VALUES ($1, $2, $3) RETURNING *",
+            [world_id, quiz_name, order_number]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error("Insert failed", err);
+        res.status(500).json({ error: "Insert failed" });
+    }
+});
+
+/** 
+ * @openapi
+ * /api/quiz/{id}:
+ *   put:
+ *     summary: Update Quiz content
+ *     description: Update quiz content for quiz where ID matches
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: Numeric ID of the quiz to update
+ *     requestBody:
+ *       description: quiz content json 
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: string
+ *             example: Paste the JSON in here!
+ *     tags:
+ *       - Quiz
+ *     responses:
+ *       '201':
+ *         description: Created
+ *       '500':
+ *         description: Insert failed
+*/
+
+router.put("/:id", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            "UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *",
+            [req.body, id]
+        );
+        if (result.rowCount === 0) {
+            res.status(400).json({ error: "ID not found" });
+            return;
+        };
+        res.json({ message: "Updated successfully", updated: result.rows[0] });
+    } catch (err) {
+        console.error("Update failed:", err);
+        res.status(500).json({ error: "Update failed" });
+    }
+});
+
 export default router;
