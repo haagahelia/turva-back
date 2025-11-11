@@ -2,6 +2,7 @@ import { Router } from "express";
 import authRouter from "./auth";
 import infoRouter from "./info";
 import quizRouter from "./quiz";
+import worldRouter from "./world";
 
 const router = Router();
 
@@ -17,5 +18,6 @@ router.get("/", (_req, res) => {
 router.use("/auth", authRouter);
 router.use("/info", infoRouter);
 router.use("/quiz", quizRouter);
+router.use("/world", worldRouter);
 
 export default router;
