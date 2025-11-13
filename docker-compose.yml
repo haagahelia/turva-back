@@ -7,6 +7,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
 
     # map container port to host 
     ports:
@@ -20,6 +24,12 @@ services:
     ports:
       - "5432:5432"
 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 1s
+      retries: 5
+      timeout: 5s
+
     # use example.sql to create a database with example data
     volumes:
       - ./sql:/docker-entrypoint-initdb.d
@@ -27,3 +37,4 @@ services:
     # store `POSTGRES_PASSWORD` in .env
     env_file: 
     - ".env"
+    
