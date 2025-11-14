@@ -28,9 +28,27 @@ router.get("/", async (_req, res) => {
     }
 });
 
+router.get("/:id", async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            "SELECT * FROM quiz WHERE quiz_id = $1",
+            [id]
+        );
+        if (result.rowCount === 0) {
+            res.status(404).json({ error: "ID not found" });
+            return;
+        };
+        res.json(result.rows);
+    } catch (err) {
+        console.error("Error in query:", err);
+        res.status(500).json({ error: "Database query failed" });
+    }
+});
+
 /**
  * @openapi
- * /api/quiz/{world_id}:
+ * /api/quiz/world/{world_id}/quizzes:
  *   get:
  *     summary: Get quizzes by world ID
  *     description: Selects all from quiz where the world ID matches the provided world ID
@@ -52,12 +70,12 @@ router.get("/", async (_req, res) => {
  *         description: Database query failed
  */
 
-router.get("/:id", async (req: Request, res: Response): Promise<void> => {
+router.get("/world/:world_id/quizzes", async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
+        const { world_id } = req.params;
         const result = await pool.query(
-            "SELECT * FROM quiz WHERE quiz_id = $1",
-            [id]
+            "SELECT * FROM quiz WHERE world_id = $1",
+            [world_id]
         );
         if (result.rowCount === 0) {
             res.status(404).json({ error: "ID not found" });
