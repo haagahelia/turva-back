@@ -4,7 +4,7 @@ import jwt, { TokenExpiredError } from 'jsonwebtoken';
 import { Request, Response } from 'express';
 
 //fix to work as needed, unused at the moment
-export const verifyToken = async (req: Request, res: Response) => {
+export const verifyToken = (req: Request, res: Response) => {
     try {
         const token = req.header("Authorization")?.split(" ")[1];
 
