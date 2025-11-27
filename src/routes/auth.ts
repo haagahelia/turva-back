@@ -48,9 +48,9 @@ router.post("/login", async (req, res) => {
     const otpQuery = `INSERT INTO email_otps (email, otp_code, valid_until, created_at) VALUES ($1, $2, $3, $4)`;
     const hashedPin = await bcrypt.hash(oneTimePin, 10);
     const values = [userEmail, hashedPin, validUntil, createdAt];
-    pool.query(otpQuery, values);
+    await pool.query(otpQuery, values);
     console.log(oneTimePin);
-    sendEmail(userEmail, oneTimePin);
+    await sendEmail(userEmail, oneTimePin);
     return res.status(200).json("Login email sent to " + userEmail);
 });
 
