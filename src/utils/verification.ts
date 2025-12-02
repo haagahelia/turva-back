@@ -4,7 +4,7 @@ import jwt, { TokenExpiredError } from 'jsonwebtoken';
 import { Request, Response } from 'express';
 
 //fix to work as needed, unused at the moment
-export const verifyToken = async (req: Request, res: Response) => {
+export const verifyToken = (req: Request, res: Response) => {
     try {
         const token = req.header("Authorization")?.split(" ")[1];
 
@@ -48,7 +48,7 @@ export const verifyPin = async (email: string, pin: string): Promise<boolean> =>
 
 export const validateEmail = (email: string): boolean => {
     const allowedDomain = process.env.TEST_DOMAIN;
-    const regexp = new RegExp(/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/);
+    const regexp = new RegExp(/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/);
     if (!regexp.test(email)) {
         return false;
     }
