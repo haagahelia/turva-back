@@ -1,35 +1,44 @@
-import { Express,  Response } from "express";
+import { Express, Response } from "express";
 import swaggerJsdoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
-import {version} from "../../package.json";
+import { version } from "../../package.json";
 
 const options: swaggerJsdoc.Options = {
-    definition: {
-        openapi: "3.0.0",
-        info:{
-            title: "REST API Docs",
-            version
-        },
-        components:{
-
-        }
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "REST API Docs",
+      version,
     },
-    apis: ["./src/routes/*.ts"],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+    security: {
+      bearerAuth: [],
+    },
+  },
+  apis: ["./src/routes/*.ts"],
 };
 
 const swaggerSpec = swaggerJsdoc(options);
 
 function swaggerDocs(app: Express, port: number) {
-    // swagger page
-    app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  // swagger page
+  app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-    // docs in JSON format
-    app.get("docs.json", ( res: Response) => {
-        res.setHeader("Content-Type", "application/json");
-        res.send(swaggerSpec);
-    });
+  // docs in JSON format
+  app.get("docs.json", (res: Response) => {
+    res.setHeader("Content-Type", "application/json");
+    res.send(swaggerSpec);
+  });
 
-    console.log(`Docs available at http://localhost:${port}/docs`);
+  console.log(`Docs available at http://localhost:${port}/docs`);
 }
 
 export default swaggerDocs;
