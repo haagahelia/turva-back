@@ -9,7 +9,7 @@ export const verifyToken = (req: Request, res: Response) => {
         const token = req.header("Authorization")?.split(" ")[1];
 
         if (!token) {
-            return res.status(401).json("No token provided");
+            return res.status(401).json({ error: "No token provided" });
         }
         const secret = process.env.JWT_SECRET || "";
         let decoded;
@@ -17,9 +17,9 @@ export const verifyToken = (req: Request, res: Response) => {
             decoded = jwt.verify(token, secret);
         } catch (error) {
             if (error instanceof TokenExpiredError) {
-                return res.status(401).json("Token has expired");
+                return res.status(401).json({ error: "Token has expired" });
             }
-            return res.status(401).json("Token is invalid");
+            return res.status(401).json({ error: "Token is invalid" });
         }
         return decoded;
 
@@ -58,4 +58,26 @@ export const validateEmail = (email: string): boolean => {
         if (allowedDomain != givenDomain) return false;
     }
     return true;
+}
+
+export const verifyUser = async (email: string, username: string): Promise<boolean> => {
+    const userQuery = `SELECT profile_name, email_address FROM TurvaUser WHERE profile_name = $1`;
+    const results = await pool.query(userQuery, [username]);
+
+    if (!results.rowCount) {
+        return false;
+    }
+    const { profile_name, email_address } = results.rows[0];
+
+    console.log("username " + profile_name + " email " + email_address.toString())
+    if (!email_address || !profile_name) {
+        return false;
+    }
+
+    if (username !== profile_name) {
+        return false;
+    }
+
+    const isVerified = await bcrypt.compare(email, email_address);
+    return isVerified;
 }
