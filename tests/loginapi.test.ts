@@ -4,6 +4,8 @@ import { connectDB } from '../src/config/db';
 
 const app = createApp();
 
+//TESTS WILL FAIL IF HARD CODED VALUES ARE WRONG OR USER USED IN TESTING IS NOT IN THE DATABASE
+
 describe("GET /api/ping", () => {
     it("should return pong", async () => {
         const res = await request(app).get("/api/ping");
@@ -20,19 +22,34 @@ describe("POST /api/auth/login", () => {
     });
 
     it("should fail without email", async () => {
-        const emptyPayload = {
+        const partialPayload = {
+            "username": "tester"
         }
         const res = await request(app)
             .post("/api/auth/login")
-            .send(emptyPayload);
+            .send(partialPayload);
 
         expect(res.status).toBe(400);
         expect(res.body.error).toBe("No email address received");
     });
 
+    it("should fail without username", async () => {
+        const partialPayload = {
+            "email": "tester@turva.back.fi",
+        }
+
+        const res = await request(app)
+            .post("/api/auth/login")
+            .send(partialPayload);
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe("No username received");
+    });
+
     it("should fail with invalid email domain", async () => {
         const payload = {
-            "email": "tester@test.com"
+            "email": "tester@test.com",
+            "username": "tester"
         }
 
         const res = await request(app)
@@ -45,7 +62,8 @@ describe("POST /api/auth/login", () => {
 
     it("should succeed with a valid email address", async () => {
         const payload = {
-            "email": "tester@turva.back.fi"
+            "email": "tester10@turva.back.fi",
+            "username": "testerAccount1"
         }
 
         const res = await request(app)
@@ -53,7 +71,7 @@ describe("POST /api/auth/login", () => {
             .send(payload);
 
         expect(res.status).toBe(200);
-        expect(res.body.message).toBe("Login email sent to tester@turva.back.fi");
+        expect(res.body.message).toBe("Login email sent to tester10@turva.back.fi");
     });
 
 });
@@ -77,7 +95,8 @@ describe("POST api/auth/verify", () => {
 
     it("should fail with a wrong pin", async () => {
         const payload = {
-            "email": "tester@turva.back.fi",
+            "email": "tester10@turva.back.fi",
+            "username": "testerAccount1",
             "verificationCode": "123456"
         }
 
@@ -89,19 +108,24 @@ describe("POST api/auth/verify", () => {
         expect(res.body.error).toBe("Code is invalid.");
     });
 
+    //Doesnt work
     it("should pass with correct pin", async () => {
         const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => { });
 
         const res = await request(app)
             .post("/api/auth/login")
-            .send({ "email": "tester@turva.back.fi" });
+            .send({
+                "email": "tester10@turva.back.fi",
+                "username": "testerAccount1"
+            });
 
         expect(res.status).toBe(200);
 
         const pinCode = consoleSpy.mock.calls[0][0];
 
         const payload = {
-            "email": "tester@turva.back.fi",
+            "email": "tester10@turva.back.fi",
+            "username": "testerAccount1",
             "verificationCode": pinCode
         }
 
@@ -119,7 +143,10 @@ describe("POST api/auth/verify", () => {
 
         const res = await request(app)
             .post("/api/auth/login")
-            .send({ "email": "tester@turva.back.fi" });
+            .send({
+                "email": "tester10@turva.back.fi",
+                "username": "testerAccount1"
+            });
 
         expect(res.status).toBe(200);
 
@@ -127,6 +154,7 @@ describe("POST api/auth/verify", () => {
 
         const payload = {
             "email": "tester2@turva.back.fi",
+            "username": "testuser",
             "verificationCode": pinCode
         }
 
