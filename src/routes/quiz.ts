@@ -8,7 +8,7 @@ const router = Router();
  * /api/quiz:
  *   get:
  *     summary: Returns all quizzes
- *     description: Selects all from quiz and returns json
+ *     description: Returns all quizzes in JSON format
  *     tags:
  *       - Quiz
  *     responses:
@@ -27,6 +27,23 @@ router.get("/", async (_req, res) => {
         res.status(500).json({ error: "Database query failed" });
     }
 });
+
+/**
+ * @openapi
+ * /api/quiz/{id}:
+ *   get:
+ *     summary: Get quiz by ID
+ *     description: Searches a specific quiz by its ID and returns it in JSON format
+ *     tags:
+ *       - Quiz
+ *     responses:
+ *       '200':
+ *         description: OK
+ *       '404':
+ *         description: ID not found
+ *       '500':
+ *         description: Database query failed
+ */
 
 router.get("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
@@ -186,6 +203,30 @@ router.put("/:id", async (req: Request, res: Response): Promise<void> => {
         res.status(500).json({ error: "Update failed" });
     }
 });
+
+/** 
+ * @openapi
+ * /api/quiz/{id}:
+ *   delete:
+ *     summary: Delete quiz by ID
+ *     description: Delete a quiz where the ID you give matches the ID of the quiz you want to delete
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: integer
+ *         required: true
+ *         description: Numeric ID of the quiz you want to get
+ *     tags:
+ *       - Quiz
+ *     responses:
+ *       '200':
+ *         description: OK
+ *       '404':
+ *         description: ID not found
+ *       '500':
+ *         description: Delete failed
+*/
 
 router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
