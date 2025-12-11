@@ -106,10 +106,11 @@ VALUES (
     );
 
 -- Sample User
-INSERT INTO TurvaUser (organization_id, profile_name)
+INSERT INTO TurvaUser (organization_id, profile_name, email_address)
 VALUES (
     1, 
     'Jane Doe'
+    'jane.doe@turva.back.fi'
     );
 
 -- Sample AppPage
