@@ -109,7 +109,7 @@ VALUES (
 INSERT INTO TurvaUser (organization_id, username, email_address)
 VALUES (
     1, 
-    'testerAccount1'
+    'testerAccount1',
     'tester10@turva.back.fi'
     );
 
