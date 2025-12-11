@@ -4,7 +4,7 @@
   "description": "Backend api server for the TurvaAppi",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
+    "test": "dotenv -e .env.test -- jest --runInBand",
     "lint": "eslint .",
     "dev": "ts-node-dev --poll -r tsconfig-paths/register src/index.ts -e .env",
     "build": "tsc --noEmit && esbuild src/index.ts --bundle --platform=node --outdir=build --loader:.html=text",
