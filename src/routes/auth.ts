@@ -34,11 +34,10 @@ router.post("/register", async (req, res) => {
         }
     }
 
-    const registerQuery = `INSERT INTO TurvaUser (organization_id, profile_name, email_address) VALUES ($1, $2, $3)`
-    const hashedEmail = await bcrypt.hash(userEmail, 12);
-    const values = [organizationId, username, hashedEmail];
-    await pool.query(registerQuery, values)
-    return res.status(201).json({ message: "Account created!" })
+    const registerQuery = `INSERT INTO TurvaUser (organization_id, profile_name, email_address) VALUES ($1, $2, $3)`;
+    const values = [organizationId, username, userEmail];
+    await pool.query(registerQuery, values);
+    return res.status(201).json({ message: "Account created!" });
 });
 
 /** 

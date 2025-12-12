@@ -74,10 +74,5 @@ export const verifyUser = async (email: string, username: string): Promise<boole
         return false;
     }
 
-    if (username !== profile_name) {
-        return false;
-    }
-
-    const isVerified = await bcrypt.compare(email, email_address);
-    return isVerified;
-}
+    return username === profile_name && email === email_address;
+};
