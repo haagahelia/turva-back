@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS Organization (
 CREATE TABLE IF NOT EXISTS TurvaUser (
     user_id SERIAL PRIMARY KEY,
     organization_id INT NOT NULL,
-    profile_name VARCHAR(255) NOT NULL,
+    profile_name VARCHAR(255) UNIQUE NOT NULL,
+    email_address VARCHAR(255) NOT NULL,
     profile_picture_url VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
@@ -105,10 +106,11 @@ VALUES (
     );
 
 -- Sample User
-INSERT INTO TurvaUser (organization_id, profile_name)
+INSERT INTO TurvaUser (organization_id, profile_name, email_address)
 VALUES (
     1, 
-    'Jane Doe'
+    'Jane Doe',
+    'jane.doe@turva.back.fi'
     );
 
 -- Sample AppPage
