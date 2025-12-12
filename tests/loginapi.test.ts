@@ -1,6 +1,6 @@
 import createApp from '../src/app';
 import request from 'supertest';
-import { connectDB } from '../src/config/db';
+import { connectDB, pool } from '../src/config/db';
 
 const app = createApp();
 
@@ -19,6 +19,11 @@ describe("GET /api/ping", () => {
 describe("POST /api/auth/login", () => {
     beforeAll(async () => {
         await connectDB();
+        await pool.query(`
+            INSERT INTO TurvaUser (organization_id, profile_name, email_address)
+            VALUES ( 1, 'testerAccount1', 'tester10@turva.back.fi')
+            ON CONFLICT DO NOTHING;
+          `);
     });
 
     it("should fail without email", async () => {
@@ -108,7 +113,6 @@ describe("POST api/auth/verify", () => {
         expect(res.body.error).toBe("Code is invalid.");
     });
 
-    //Doesnt work
     it("should pass with correct pin", async () => {
         const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => { });
 
@@ -120,8 +124,9 @@ describe("POST api/auth/verify", () => {
             });
 
         expect(res.status).toBe(200);
+        expect(consoleSpy).toHaveBeenCalled();
 
-        const pinCode = consoleSpy.mock.calls[0][0];
+        const pinCode = consoleSpy.mock.calls[2][0];
 
         const payload = {
             "email": "tester10@turva.back.fi",
@@ -135,7 +140,7 @@ describe("POST api/auth/verify", () => {
 
         expect(verifyRes.status).toBe(200);
         expect(verifyRes.body.message).toBe("Login successful!");
-        expect(verifyRes.body.token).not.toBeNull;
+        expect(verifyRes.body.token).not.toBeNull();
     });
 
     it("should fail with correct pin and wrong email", async () => {
@@ -149,7 +154,6 @@ describe("POST api/auth/verify", () => {
             });
 
         expect(res.status).toBe(200);
-
         const pinCode = consoleSpy.mock.calls[0][0];
 
         const payload = {
