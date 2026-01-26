@@ -5,9 +5,9 @@ import createApp from "./app";
 import { connectDB } from "./config/db";
 import swaggerDocs from './utils/swagger';
 
-const port = 3000;
+const port: number = 3000;
 
-const startServer = async () => {
+const startServer = async (): Promise<void> => {
     await connectDB();
 
     const app = createApp();
@@ -20,7 +20,7 @@ const startServer = async () => {
     });
 };
 
-startServer().catch((err) => {
+startServer().catch((err: unknown) => {
     console.error("Failed to start server:", err);
     process.exit(1);
 });

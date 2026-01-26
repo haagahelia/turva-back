@@ -26,14 +26,14 @@ const options: swaggerJsdoc.Options = {
   apis: ["./src/routes/*.ts"],
 };
 
-const swaggerSpec = swaggerJsdoc(options);
+const swaggerSpec: object = swaggerJsdoc(options);
 
-function swaggerDocs(app: Express, port: number) {
+function swaggerDocs(app: Express, port: number): void {
   // swagger page
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
   // docs in JSON format
-  app.get("docs.json", (res: Response) => {
+  app.get("docs.json", (res: Response): void => {
     res.setHeader("Content-Type", "application/json");
     res.send(swaggerSpec);
   });

@@ -1,15 +1,15 @@
 import { generatePin } from "@/utils/pinGenerator";
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import bcrypt from 'bcryptjs';
 import { validateEmail, verifyPin, verifyUser } from "@/utils/verification";
 import { pool } from "@/config/db";
 import { generateToken } from "@/utils/tokenGenerator";
 import { sendEmail } from "@/utils/emailer";
 
-const router = Router();
+const router: Router = Router();
 
 // TODO?: Add email confirmation before completing register??
-router.post("/register", async (req, res) => {
+router.post("/register", async (req: Request, res: Response): Promise<Response | void> => {
     const username = req.body.username;
     const userEmail = req.body.email;
     const organizationId = req.body.organizationId;
@@ -65,7 +65,7 @@ router.post("/register", async (req, res) => {
  *         description: No email received or not valid
 */
 
-router.post("/login", async (req, res) => {
+router.post("/login", async (req: Request, res: Response): Promise<Response | void> => {
     const userEmail = req.body.email;
     const username = req.body.username;
     console.log("email: " + userEmail);
@@ -126,7 +126,7 @@ router.post("/login", async (req, res) => {
  *         description: Code is invalid
 */
 
-router.post("/verify", async (req, res) => {
+router.post("/verify", async (req: Request, res: Response): Promise<Response | void> => {
     const email = req.body.email;
     const username = req.body.username;
     const verificationCode = req.body.verificationCode;

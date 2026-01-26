@@ -1,7 +1,7 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { pool } from "../config/db";
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * @openapi
@@ -18,7 +18,7 @@ const router = Router();
  *         description: Database query failed
  */
 
-router.get("/", async (_req, res) => {
+router.get("/", async (_req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query("SELECT * FROM World;");
     res.json(result.rows);
