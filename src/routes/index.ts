@@ -1,16 +1,16 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import authRouter from "./auth";
 import infoRouter from "./info";
 import quizRouter from "./quiz";
 import worldRouter from "./world";
 
-const router = Router();
+const router: Router = Router();
 
-router.get("/ping", (_req, res) => {
+router.get("/ping", (_req: Request, res: Response) => {
     res.send("pong")
 });
 
-router.get("/", (_req, res) => {
+router.get("/", (_req: Request, res: Response): void => {
     res.json("Hello world!")
 });
 

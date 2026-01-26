@@ -8,7 +8,7 @@ const {
     POSTGRES_HOST,
 } = process.env;
 
-export const pool = new Pool({
+export const pool: pkg.Pool = new Pool({
     user: POSTGRES_USER,
     password: POSTGRES_PASSWORD,
     database: POSTGRES_DB,
@@ -16,12 +16,12 @@ export const pool = new Pool({
     port: 5432,
 });
 
-export const connectDB = async () => {
+export const connectDB = async (): Promise<void> => {
     try {
-        const client = await pool.connect();
+        const client: pkg.PoolClient = await pool.connect();
         console.log("✅ Connected to Postgres successfully");
         client.release();
-    } catch (err) {
+    } catch (err: unknown) {
         console.error("❌ Postgres connection failed:", err);
     }
 };
