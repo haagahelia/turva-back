@@ -1,15 +1,13 @@
-node_modules
-build
-    .git
-    .env
-    .DS_Store
-npm - debug.log
-yarn - error.log
-coverage
-dist
-logs
-    *.log
-    *.tsbuildinfo
+**/node_modules/
+build/
+.git/
+.env*
+.DS_Store
+coverage/
+dist/
+logs/
+**/*.log
+*.tsbuildinfo
 README.md
-    .vscode
-tests
+.vscode
+tests/
