@@ -1,14 +1,15 @@
 import createApp from '../src/app';
-import request from 'supertest';
+import request, { Response } from 'supertest';
 import { connectDB, pool } from '../src/config/db';
+import { Express } from 'express';
 
-const app = createApp();
+const app: Express = createApp();
 
 //TESTS WILL FAIL IF HARD CODED VALUES ARE WRONG OR USER USED IN TESTING IS NOT IN THE DATABASE
 
 describe("GET /api/ping", () => {
     it("should return pong", async () => {
-        const res = await request(app).get("/api/ping");
+        const res: Response = await request(app).get("/api/ping");
         expect(res.statusCode).toBe(200);
         expect(res.text).toBe("pong");
     });
@@ -30,7 +31,7 @@ describe("POST /api/auth/login", () => {
         const partialPayload = {
             "username": "tester"
         }
-        const res = await request(app)
+        const res: Response = await request(app)
             .post("/api/auth/login")
             .send(partialPayload);
 
@@ -43,7 +44,7 @@ describe("POST /api/auth/login", () => {
             "email": "tester@turva.back.fi",
         }
 
-        const res = await request(app)
+        const res: Response = await request(app)
             .post("/api/auth/login")
             .send(partialPayload);
 
@@ -57,7 +58,7 @@ describe("POST /api/auth/login", () => {
             "username": "tester"
         }
 
-        const res = await request(app)
+        const res: Response = await request(app)
             .post("/api/auth/login")
             .send(payload);
 
@@ -71,7 +72,7 @@ describe("POST /api/auth/login", () => {
             "username": "testerAccount1"
         }
 
-        const res = await request(app)
+        const res: Response = await request(app)
             .post("/api/auth/login")
             .send(payload);
 
@@ -87,10 +88,9 @@ describe("POST api/auth/verify", () => {
     });
 
     it("Should fail without a pin", async () => {
-        const emptyPayload = {
+        const emptyPayload = {}
 
-        }
-        const res = await request(app)
+        const res: Response = await request(app)
             .post("/api/auth/verify")
             .send(emptyPayload);
 
@@ -105,7 +105,7 @@ describe("POST api/auth/verify", () => {
             "verificationCode": "123456"
         }
 
-        const res = await request(app)
+        const res: Response = await request(app)
             .post("/api/auth/verify")
             .send(payload);
 
@@ -114,9 +114,9 @@ describe("POST api/auth/verify", () => {
     });
 
     it("should pass with correct pin", async () => {
-        const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => { });
+        const consoleSpy: jest.SpyInstance = jest.spyOn(console, "log").mockImplementation(() => { });
 
-        const res = await request(app)
+        const res: Response = await request(app)
             .post("/api/auth/login")
             .send({
                 "email": "tester10@turva.back.fi",
@@ -126,7 +126,7 @@ describe("POST api/auth/verify", () => {
         expect(res.status).toBe(200);
         expect(consoleSpy).toHaveBeenCalled();
 
-        const pinCode = consoleSpy.mock.calls[2][0];
+        const pinCode: unknown = consoleSpy.mock.calls[2][0];
 
         const payload = {
             "email": "tester10@turva.back.fi",
@@ -134,7 +134,7 @@ describe("POST api/auth/verify", () => {
             "verificationCode": pinCode
         }
 
-        const verifyRes = await request(app)
+        const verifyRes: Response = await request(app)
             .post("/api/auth/verify")
             .send(payload);
 
@@ -144,9 +144,9 @@ describe("POST api/auth/verify", () => {
     });
 
     it("should fail with correct pin and wrong email", async () => {
-        const consoleSpy = jest.spyOn(console, "log").mockImplementation(() => { });
+        const consoleSpy: jest.SpyInstance = jest.spyOn(console, "log").mockImplementation(() => { });
 
-        const res = await request(app)
+        const res: Response = await request(app)
             .post("/api/auth/login")
             .send({
                 "email": "tester10@turva.back.fi",
@@ -154,7 +154,7 @@ describe("POST api/auth/verify", () => {
             });
 
         expect(res.status).toBe(200);
-        const pinCode = consoleSpy.mock.calls[0][0];
+        const pinCode: unknown = consoleSpy.mock.calls[0][0];
 
         const payload = {
             "email": "tester2@turva.back.fi",
@@ -162,7 +162,7 @@ describe("POST api/auth/verify", () => {
             "verificationCode": pinCode
         }
 
-        const verifyRes = await request(app)
+        const verifyRes: Response = await request(app)
             .post("/api/auth/verify")
             .send(payload);
 
