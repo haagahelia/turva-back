@@ -63,7 +63,7 @@ router.get("/:id", async (req: Request, res: Response): Promise<void> => {
             res.status(404).json({ error: "ID not found" });
             return;
         };
-        res.json(result.rows);
+        res.json(result.rows[0]);
     } catch (err) {
         console.error("Error in query:", err);
         res.status(500).json({ error: "Database query failed" });
