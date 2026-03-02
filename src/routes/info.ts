@@ -46,6 +46,8 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '200':
  *         description: OK
+ *       '400':
+ *         description: Invalid ID format
  *       '404':
  *         description: ID not found
  *       '500':
@@ -54,7 +56,13 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
 
 router.get("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            res.status(400).json({ error: "Invalid ID format" });
+            return;
+        }
+
         const result = await pool.query(
             "SELECT * FROM info WHERE id = $1",
             [id]
@@ -88,6 +96,8 @@ router.get("/:id", async (req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '200':
  *         description: OK
+ *       '400':
+ *         description: Invalid ID format
  *       '404':
  *         description: ID not found
  *       '500':
@@ -96,7 +106,13 @@ router.get("/:id", async (req: Request, res: Response): Promise<void> => {
 
 router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            res.status(400).json({ error: "Invalid ID format" });
+            return;
+        }
+
         const result = await pool.query(
             "DELETE FROM info WHERE id = $1 RETURNING *",
             [id]
@@ -190,17 +206,25 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
  *     tags:
  *       - Info Page
  *     responses:
- *       '201':
- *         description: Created
+ *       '200':
+ *         description: Updated successfully
  *       '400':
- *         description: Title or content missing
+ *         description: Invalid ID format or missing title/content
+ *       '404':
+ *         description: ID not found
  *       '500':
- *         description: Insert failed
+ *         description: Update failed
 */
 
 router.put("/:id", async (req: Request, res: Response): Promise<void> => {
     try {
-        const { id } = req.params;
+        const id = Number(req.params.id);
+
+        if (!Number.isInteger(id) || id <= 0) {
+            res.status(400).json({ error: "Invalid ID format" });
+            return;
+        }
+        
         const { title, content } = req.body;
         if (!title || !content) {
             res.status(400).json({ error: "Title or content missing" });
@@ -211,7 +235,7 @@ router.put("/:id", async (req: Request, res: Response): Promise<void> => {
             [title, content, id]
         );
         if (result.rowCount === 0) {
-            res.status(400).json({ error: "ID not found" });
+            res.status(404).json({ error: "ID not found" });
             return;
         };
         res.json({ message: "Updated successfully", updated: result.rows[0] });
