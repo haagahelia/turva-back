@@ -11,6 +11,7 @@ describe("Info API Integration Tests", () => {
 
   let testId1: number;
   let testId2: number;
+  const createdIds: number[] = [];
 
   beforeAll(async () => {
     const res1 = await pool.query(
@@ -27,9 +28,8 @@ describe("Info API Integration Tests", () => {
   });
 
   afterAll(async () => {
-    await pool.query("DELETE FROM info WHERE id IN ($1, $2)", [
-      testId1,
-      testId2,
+    await pool.query("DELETE FROM info WHERE id = ANY($1)", [
+      [testId1, testId2, ...createdIds],
     ]);
   });
 
@@ -93,6 +93,69 @@ describe("Info API Integration Tests", () => {
     it("should return JSON content type", async () => {
       const res = await request(app).get(`/api/info/${testId1}`);
       expect(res.headers["content-type"]).toMatch(/application\/json/);
+    });
+  });
+
+  describe("POST /api/info", () => {
+    it("should create a new info item", async () => {
+      const res = await request(app)
+        .post("/api/info")
+        .send({ title: "New Test Title", content: "New Test Content" });
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty("id");
+      expect(res.body).toHaveProperty("title", "New Test Title");
+      expect(res.body).toHaveProperty("content", "New Test Content");
+      createdIds.push(res.body.id);
+    });
+
+    it("should return 400 Bad Request for missing title", async () => {
+      const res = await request(app)
+        .post("/api/info")
+        .send({ content: "Missing Title" });
+      expect(res.status).toBe(400);
+    });
+
+    it("should return 400 Bad Request for missing content", async () => {
+      const res = await request(app)
+        .post("/api/info")
+        .send({ title: "Missing Content" });
+      expect(res.status).toBe(400);
+    });
+
+    it("should return 400 Bad Request for empty title", async () => {
+      const res = await request(app)
+        .post("/api/info")
+        .send({ title: "", content: "Empty Title" });
+      expect(res.status).toBe(400);
+    });
+
+    it("should return 400 Bad Request for empty content", async () => {
+      const res = await request(app)
+        .post("/api/info")
+        .send({ title: "Empty Content", content: "" });
+      expect(res.status).toBe(400);
+    });
+
+    it("should return JSON content type", async () => {
+      const res = await request(app)
+        .post("/api/info")
+        .send({ title: "Content Type Test", content: "Testing content type" });
+      expect(res.headers["content-type"]).toMatch(/application\/json/);
+      createdIds.push(res.body.id);
+    });
+
+    it("should persist the created item in the database", async () => {
+      const res = await request(app)
+        .post("/api/info")
+        .send({ title: "Persistence Test", content: "Persisted persistence" });
+
+      createdIds.push(res.body.id);
+
+      const getRes = await request(app).get(`/api/info/${res.body.id}`);
+      expect(getRes.status).toBe(200);
+      expect(getRes.body).toHaveProperty("id", res.body.id);
+      expect(getRes.body).toHaveProperty("title", "Persistence Test");
+      expect(getRes.body).toHaveProperty("content", "Persisted persistence");
     });
   });
 });
