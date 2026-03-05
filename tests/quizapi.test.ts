@@ -117,4 +117,59 @@ describe('Quiz api integration tests', () => {
 			expect(res.statusCode).toBe(404);
 		});
 	});
+
+	describe('GET /quiz/world/:world_id/quizzes', () => {
+		it('Should return 200 status code', async () => {
+			const res: Response = await request(app).get(`/api/quiz/world/1/quizzes`);
+			expect(res.statusCode).toBe(200);
+		});
+
+		it('Should return a valid JSON response', async () => {
+			const res: Response = await request(app).get(`/api/quiz/world/1/quizzes`);
+			expect(Array.isArray(res.body)).toBe(true);
+			expect(res.body.length).toBeGreaterThan(0);
+		});
+
+		it('Should contain a quiz with the correct properties', async () => {
+			const res: Response = await request(app).get(`/api/quiz/world/1/quizzes`);
+			const quiz = res.body[0];
+			expect(res.body.length).toBeGreaterThan(0);
+			expect(quiz).toHaveProperty('quiz_id');
+			expect(quiz).toHaveProperty('world_id');
+			expect(quiz).toHaveProperty('quiz_content');
+			expect(quiz).toHaveProperty('quiz_name');
+			expect(quiz).toHaveProperty('order_number');
+			expect(quiz).toHaveProperty('created_at');
+		});
+
+		it('Should return 404 status code with incorrect world ID', async () => {
+			const res: Response = await request(app).get(
+				`/api/quiz/world/99999/quizzes`,
+			);
+			expect(res.statusCode).toBe(404);
+			expect(res.body.error).toBe('ID not found');
+		});
+
+		it('Should return 400 status code with incorrect world ID format', async () => {
+			const res: Response = await request(app).get(
+				`/api/quiz/world/abc123/quizzes`,
+			);
+			expect(res.statusCode).toBe(400);
+			expect(res.body.error).toBe('Invalid ID format');
+		});
+
+		it('Should return 500 status code when a database error occurs', async () => {
+			const mockQuery = jest
+				.spyOn(pool, 'query')
+				.mockRejectedValueOnce(new Error('Database connection failed') as never);
+
+			const res: Response = await request(app).get(`/api/quiz/world/1/quizzes`);
+
+			expect(res.statusCode).toBe(500);
+			expect(res.body).toHaveProperty('error');
+			expect(res.body.error).toBe('Database query failed');
+
+			mockQuery.mockRestore();
+		});
+	});
 });

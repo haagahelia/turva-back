@@ -39,10 +39,10 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '200':
  *         description: OK
- *       '404':
- *         description: ID not found
  *       '400':
  *         description: Invalid ID format
+ *       '404':
+ *         description: ID not found
  *       '500':
  *         description: Database query failed
  */
@@ -88,6 +88,8 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '200':
  *         description: OK
+ * 		 '400':
+ * 			description: Invalid ID format
  *       '404':
  *         description: ID not found
  *       '500':
@@ -99,6 +101,16 @@ router.get(
 	async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { world_id } = req.params;
+
+			if (
+				world_id == null ||
+				world_id.trim() === '' ||
+				Number.isNaN(Number(world_id))
+			) {
+				res.status(400).json({ error: 'Invalid ID format' });
+				return;
+			}
+
 			const result = await pool.query(
 				'SELECT * FROM quiz WHERE world_id = $1',
 				[world_id],
