@@ -163,7 +163,13 @@ router.get(
 router.post('/', async (req: Request, res: Response): Promise<void> => {
 	try {
 		const { world_id, quiz_name, quiz_content, order_number } = req.body;
-		if (!world_id || !quiz_name || !order_number) {
+		if (
+			!world_id ||
+			!quiz_name ||
+			!order_number ||
+			world_id < 0 ||
+			order_number < 0
+		) {
 			res
 				.status(400)
 				.json({ error: 'World id, quiz name or order number missing' });
@@ -171,7 +177,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 		}
 		const result = await pool.query(
 			'INSERT INTO quiz (world_id, quiz_name, quiz_content, order_number) VALUES ($1, $2, $3, $4) RETURNING *',
-			[world_id, quiz_name, quiz_content, order_number],
+			[world_id, quiz_name, JSON.stringify(quiz_content), order_number],
 		);
 		res.status(201).json(result.rows[0]);
 	} catch (err) {
