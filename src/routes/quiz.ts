@@ -212,6 +212,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '201':
  *         description: Created
+ * 		 '400':
+ * 			description: Invalid ID format
  *       '500':
  *         description: Insert failed
  */
@@ -219,15 +221,28 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 router.put('/:id', async (req: Request, res: Response): Promise<void> => {
 	try {
 		const { id } = req.params;
+
+		if (id == null || id.trim() === '' || Number.isNaN(Number(id))) {
+			res.status(400).json({ error: 'Invalid ID format' });
+			return;
+		}
+
+		if (req.body === undefined) {
+			res.status(400).json({ error: 'Request body must be valid JSON' });
+			return;
+		}
+
 		const result = await pool.query(
 			'UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *',
-			[req.body, id],
+			[JSON.stringify(req.body), id],
 		);
 		if (result.rowCount === 0) {
 			res.status(400).json({ error: 'ID not found' });
 			return;
 		}
-		res.json({ message: 'Updated successfully', updated: result.rows[0] });
+		res
+			.status(201)
+			.json({ message: 'Updated successfully', updated: result.rows[0] });
 	} catch (err) {
 		console.error('Update failed:', err);
 		res.status(500).json({ error: 'Update failed' });

@@ -382,4 +382,214 @@ describe('Quiz api integration tests', () => {
 			});
 		});
 	});
+
+	describe('PUT /api/quiz/:id', () => {
+		const updatedQuizContent = {
+			testQuestion: 'New updated test question',
+			testAnswer: 'updated test answer',
+			testDifficulty: 'test',
+			testType: 'update test',
+		};
+		describe('Success cases', () => {
+			it('Should be able to update and return a 201 response', async () => {
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(updatedQuizContent);
+				expect(res.statusCode).toBe(201);
+			});
+
+			it('Should contain "Updated successfully" message', async () => {
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(updatedQuizContent);
+				expect(res.statusCode).toBe(201);
+
+				expect(res.body.message).toBe('Updated successfully');
+				expect(res.body).toHaveProperty('updated');
+			});
+
+			it('Verify updated data persists', async () => {
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(updatedQuizContent);
+				expect(res.statusCode).toBe(201);
+
+				expect(res.body.updated.quiz_content).toHaveProperty('testQuestion');
+				expect(res.body.updated.quiz_content).toHaveProperty('testAnswer');
+				expect(res.body.updated.quiz_content).toHaveProperty('testDifficulty');
+				expect(res.body.updated.quiz_content).toHaveProperty('testType');
+			});
+
+			it('Verify that "created_at" property has changed', async () => {
+				const result = await pool.query(
+					'SELECT created_at FROM Quiz WHERE quiz_id = $1',
+					[testQuizId],
+				);
+				const oldCreatedAt = new Date(result.rows[0].created_at).getTime();
+
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(updatedQuizContent);
+				expect(res.statusCode).toBe(201);
+
+				const createdAt = new Date(res.body.updated.created_at).getTime();
+				expect(createdAt).toBeGreaterThan(oldCreatedAt);
+				expect(oldCreatedAt).not.toEqual(createApp);
+			});
+		});
+
+		describe('ID Parameter Validation', () => {
+			it('Should return 400 when quiz ID does not exist', async () => {
+				const res: Response = await request(app)
+					.put('/api/quiz/99999')
+					.send(updatedQuizContent);
+				expect(res.statusCode).toBe(400);
+				expect(res.body).toHaveProperty('error');
+				expect(res.body.error).toBe('ID not found');
+			});
+
+			it('Should return 400 for invalid ID format (non-numeric)', async () => {
+				const res: Response = await request(app)
+					.put('/api/quiz/abc123')
+					.send(updatedQuizContent);
+				expect(res.statusCode).toBe(400);
+			});
+
+			it('Should handle negative ID', async () => {
+				const res: Response = await request(app)
+					.put('/api/quiz/-1')
+					.send(updatedQuizContent);
+				expect(res.statusCode).toBe(400);
+				expect(res.body.error).toBe('ID not found');
+			});
+
+			it('Should handle zero as ID', async () => {
+				const res: Response = await request(app)
+					.put('/api/quiz/0')
+					.send(updatedQuizContent);
+				expect(res.statusCode).toBe(400);
+				expect(res.body.error).toBe('ID not found');
+			});
+
+			it('Should handle very large ID number', async () => {
+				const res: Response = await request(app)
+					.put('/api/quiz/999999999999')
+					.send(updatedQuizContent);
+				console.log(res.body);
+
+				expect(res.statusCode).toBe(500);
+				expect(res.body.error).toBe('Update failed');
+			});
+		});
+
+		describe('Body validation', () => {
+			it('Should accept empty object as body', async () => {
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send({});
+				expect(res.statusCode).toBe(201);
+				expect(res.body.updated.quiz_content).toEqual({});
+			});
+
+			it('Should not accept plain string values', async () => {
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send('plain string content');
+
+				expect(res.statusCode).toBe(400);
+				expect(res.body).toHaveProperty('error');
+				expect(res.body.error).toBe('Request body must be valid JSON');
+			});
+
+			it('Should accept array in request body', async () => {
+				const arrayContent = ['item1', 'item2', 'item3'];
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(arrayContent);
+				expect(res.statusCode).toBe(201);
+				expect(res.body.updated.quiz_content).toEqual(arrayContent);
+			});
+
+			it('Should reject request with no body', async () => {
+				const res: Response = await request(app).put(`/api/quiz/${testQuizId}`);
+				expect(res.statusCode).toBe(400);
+				expect(res.body).toHaveProperty('error');
+				expect(res.body.error).toBe('Request body must be valid JSON');
+			});
+
+			it('Should handle special characters in content', async () => {
+				const specialContent = {
+					question: 'What\'s "special"?',
+					answer: 'Characters: <>&"\'\\/',
+					unicode: '你好世界 🌍 émojis',
+					backslash: 'path\\to\\file',
+				};
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(specialContent);
+				expect(res.statusCode).toBe(201);
+				expect(res.body.updated.quiz_content).toEqual(specialContent);
+			});
+
+			it('Should handle nested objects in content', async () => {
+				const nestedContent = {
+					question: 'Nested question',
+					metadata: {
+						author: 'Test Author',
+						tags: ['tag1', 'tag2'],
+						stats: {
+							attempts: 0,
+							successRate: 0,
+						},
+					},
+				};
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(nestedContent);
+				expect(res.statusCode).toBe(201);
+				expect(res.body.updated.quiz_content).toEqual(nestedContent);
+			});
+
+			it('Should handle boolean values in content', async () => {
+				const booleanContent = {
+					isActive: true,
+					isArchived: false,
+					hasMedia: true,
+				};
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(booleanContent);
+				expect(res.statusCode).toBe(201);
+				expect(res.body.updated.quiz_content).toEqual(booleanContent);
+			});
+
+			it('Should handle numeric content', async () => {
+				const numericContent = {
+					score: 100,
+					multiplier: 1.5,
+					negative: -10,
+					zero: 0,
+				};
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(numericContent);
+				expect(res.statusCode).toBe(201);
+				expect(res.body.updated.quiz_content).toEqual(numericContent);
+			});
+
+			it('Should handle large JSON payload', async () => {
+				const largeContent = {
+					questions: Array(100).fill({
+						question: 'Test question with some text',
+						answer: 'Test answer',
+						options: ['A', 'B', 'C', 'D'],
+					}),
+				};
+				const res: Response = await request(app)
+					.put(`/api/quiz/${testQuizId}`)
+					.send(largeContent);
+				expect(res.statusCode).toBe(201);
+			});
+		});
+	});
 });
