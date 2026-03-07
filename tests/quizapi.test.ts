@@ -589,4 +589,161 @@ describe('Quiz api integration tests', () => {
 			});
 		});
 	});
+
+	describe('DELETE /api/quiz/:id', () => {
+		let deleteTestQuizId: number;
+
+		beforeEach(async () => {
+			const result = await pool.query(`
+				INSERT INTO Quiz (world_id, quiz_name, quiz_content, order_number)
+				VALUES (1, 'DELETE_TEST_QUIZ', '{"test": "content"}', 5)
+				RETURNING quiz_id;
+			`);
+			if (result.rows.length > 0) {
+				deleteTestQuizId = result.rows[0].quiz_id;
+			}
+		});
+
+		afterEach(async () => {
+			try {
+				await pool.query('DELETE FROM Quiz WHERE quiz_id = $1', [
+					deleteTestQuizId,
+				]);
+			} catch (err) {
+				// Quiz may already be deleted in test
+			}
+		});
+
+		describe('Success cases', () => {
+			it('Should return 200 status code when quiz is deleted successfully', async () => {
+				const res: Response = await request(app).delete(
+					`/api/quiz/${deleteTestQuizId}`,
+				);
+				expect(res.statusCode).toBe(200);
+			});
+
+			it('Should contain "Deleted successfully" message', async () => {
+				const res: Response = await request(app).delete(
+					`/api/quiz/${deleteTestQuizId}`,
+				);
+				expect(res.statusCode).toBe(200);
+				expect(res.body.message).toBe('Deleted successfully');
+				expect(res.body).toHaveProperty('deleted');
+			});
+
+			it('Should return deleted quiz object with all properties', async () => {
+				const res: Response = await request(app).delete(
+					`/api/quiz/${deleteTestQuizId}`,
+				);
+				expect(res.statusCode).toBe(200);
+
+				const deleted = res.body.deleted;
+				expect(deleted).toHaveProperty('quiz_id');
+				expect(deleted).toHaveProperty('world_id');
+				expect(deleted).toHaveProperty('quiz_name');
+				expect(deleted).toHaveProperty('quiz_content');
+				expect(deleted).toHaveProperty('order_number');
+				expect(deleted).toHaveProperty('created_at');
+				expect(deleted.quiz_id).toBe(deleteTestQuizId);
+				expect(deleted.quiz_name).toBe('DELETE_TEST_QUIZ');
+			});
+
+			it('Should verify quiz is actually deleted from database', async () => {
+				const res: Response = await request(app).delete(
+					`/api/quiz/${deleteTestQuizId}`,
+				);
+				expect(res.statusCode).toBe(200);
+
+				const quizFromDb = await pool.query(
+					'SELECT * FROM Quiz WHERE quiz_id = $1',
+					[deleteTestQuizId],
+				);
+				expect(quizFromDb.rows.length).toBe(0);
+			});
+		});
+
+		describe('ID Parameter Validation', () => {
+			it('Should return 404 when quiz ID does not exist', async () => {
+				const res: Response = await request(app).delete('/api/quiz/99999');
+				expect(res.statusCode).toBe(404);
+				expect(res.body).toHaveProperty('error');
+				expect(res.body.error).toBe('ID not found');
+			});
+
+			it('Should handle negative ID', async () => {
+				const res: Response = await request(app).delete('/api/quiz/-1');
+				expect(res.statusCode).toBe(404);
+				expect(res.body.error).toBe('ID not found');
+			});
+
+			it('Should handle zero as ID', async () => {
+				const res: Response = await request(app).delete('/api/quiz/0');
+				expect(res.statusCode).toBe(404);
+				expect(res.body.error).toBe('ID not found');
+			});
+
+			it('Should handle very large ID number', async () => {
+				const res: Response = await request(app).delete(
+					'/api/quiz/999999999999',
+				);
+				console.log(res.body);
+
+				expect([400, 500]).toContain(res.statusCode);
+			});
+		});
+
+		describe('Error handling', () => {
+			it('Should return 500 when database error occurs', async () => {
+				const mockQuery = jest
+					.spyOn(pool, 'query')
+					.mockRejectedValueOnce(
+						new Error('Database connection failed') as never,
+					);
+
+				const res: Response = await request(app).delete(
+					`/api/quiz/${deleteTestQuizId}`,
+				);
+
+				expect(res.statusCode).toBe(500);
+				expect(res.body).toHaveProperty('error');
+				expect(res.body.error).toBe('Delete failed');
+
+				mockQuery.mockRestore();
+			});
+		});
+
+		describe('Edge cases', () => {
+			it('Should return 404 when trying to delete the same quiz twice', async () => {
+				const firstRes: Response = await request(app).delete(
+					`/api/quiz/${deleteTestQuizId}`,
+				);
+				expect(firstRes.statusCode).toBe(200);
+
+				const secondRes: Response = await request(app).delete(
+					`/api/quiz/${deleteTestQuizId}`,
+				);
+				expect(secondRes.statusCode).toBe(404);
+				expect(secondRes.body.error).toBe('ID not found');
+			});
+
+			it('Should not affect other quizzes when deleting', async () => {
+				const quizBefore = await pool.query(
+					'SELECT * FROM Quiz WHERE quiz_id = $1',
+					[testQuizId],
+				);
+				expect(quizBefore.rows.length).toBe(1);
+
+				const res: Response = await request(app).delete(
+					`/api/quiz/${deleteTestQuizId}`,
+				);
+				expect(res.statusCode).toBe(200);
+
+				const quizAfter = await pool.query(
+					'SELECT * FROM Quiz WHERE quiz_id = $1',
+					[testQuizId],
+				);
+				expect(quizAfter.rows.length).toBe(1);
+			});
+		});
+	});
 });
