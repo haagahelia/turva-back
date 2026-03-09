@@ -1,5 +1,5 @@
-import { Router, Request, Response } from "express";
-import { pool } from "../config/db";
+import { Router, Request, Response } from 'express';
+import { pool } from '../config/db';
 
 const router: Router = Router();
 
@@ -18,14 +18,14 @@ const router: Router = Router();
  *         description: Database query failed
  */
 
-router.get("/", async (_req: Request, res: Response): Promise<void> => {
-    try {
-        const result = await pool.query("SELECT * FROM Quiz;");
-        res.json(result.rows);
-    } catch (err) {
-        console.error("Error in query:", err);
-        res.status(500).json({ error: "Database query failed" });
-    }
+router.get('/', async (_req: Request, res: Response): Promise<void> => {
+	try {
+		const result = await pool.query('SELECT * FROM Quiz;');
+		res.json(result.rows);
+	} catch (err) {
+		console.error('Error in query:', err);
+		res.status(500).json({ error: 'Database query failed' });
+	}
 });
 
 /**
@@ -39,28 +39,35 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '200':
  *         description: OK
+ *       '400':
+ *         description: Invalid ID format
  *       '404':
  *         description: ID not found
  *       '500':
  *         description: Database query failed
  */
 
-router.get("/:id", async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query(
-            "SELECT * FROM quiz WHERE quiz_id = $1",
-            [id]
-        );
-        if (result.rowCount === 0) {
-            res.status(404).json({ error: "ID not found" });
-            return;
-        };
-        res.json(result.rows);
-    } catch (err) {
-        console.error("Error in query:", err);
-        res.status(500).json({ error: "Database query failed" });
-    }
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+	try {
+		const { id } = req.params;
+
+		if (id == null || id.trim() === '' || Number.isNaN(Number(id))) {
+			res.status(400).json({ error: 'Invalid ID format' });
+			return;
+		}
+
+		const result = await pool.query('SELECT * FROM quiz WHERE quiz_id = $1', [
+			id,
+		]);
+		if (result.rowCount === 0) {
+			res.status(404).json({ error: 'ID not found' });
+			return;
+		}
+		res.json(result.rows);
+	} catch (err) {
+		console.error('Error in query:', err);
+		res.status(500).json({ error: 'Database query failed' });
+	}
 });
 
 /**
@@ -81,31 +88,46 @@ router.get("/:id", async (req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '200':
  *         description: OK
+ * 		 '400':
+ * 			description: Invalid ID format
  *       '404':
  *         description: ID not found
  *       '500':
  *         description: Database query failed
  */
 
-router.get("/world/:world_id/quizzes", async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { world_id } = req.params;
-        const result = await pool.query(
-            "SELECT * FROM quiz WHERE world_id = $1",
-            [world_id]
-        );
-        if (result.rowCount === 0) {
-            res.status(404).json({ error: "ID not found" });
-            return;
-        };
-        res.json(result.rows);
-    } catch (err) {
-        console.error("Error in query:", err);
-        res.status(500).json({ error: "Database query failed" });
-    }
-});
+router.get(
+	'/world/:world_id/quizzes',
+	async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { world_id } = req.params;
 
-/** 
+			if (
+				world_id == null ||
+				world_id.trim() === '' ||
+				Number.isNaN(Number(world_id))
+			) {
+				res.status(400).json({ error: 'Invalid ID format' });
+				return;
+			}
+
+			const result = await pool.query(
+				'SELECT * FROM quiz WHERE world_id = $1',
+				[world_id],
+			);
+			if (result.rowCount === 0) {
+				res.status(404).json({ error: 'ID not found' });
+				return;
+			}
+			res.json(result.rows);
+		} catch (err) {
+			console.error('Error in query:', err);
+			res.status(500).json({ error: 'Database query failed' });
+		}
+	},
+);
+
+/**
  * @openapi
  * /api/quiz:
  *   post:
@@ -136,27 +158,35 @@ router.get("/world/:world_id/quizzes", async (req: Request, res: Response): Prom
  *         description: world_id, quiz_name or order_number missing
  *       '500':
  *         description: Insert failed
-*/
+ */
 
-router.post("/", async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { world_id, quiz_name, quiz_content, order_number } = req.body;
-        if (!world_id || !quiz_name || !order_number) {
-            res.status(400).json({ error: "World id, quiz name or order number missing" });
-            return;
-        };
-        const result = await pool.query(
-            "INSERT INTO quiz (world_id, quiz_name, quiz_content, order_number) VALUES ($1, $2, $3, $4) RETURNING *",
-            [world_id, quiz_name, quiz_content, order_number]
-        );
-        res.status(201).json(result.rows[0]);
-    } catch (err) {
-        console.error("Insert failed", err);
-        res.status(500).json({ error: "Insert failed" });
-    }
+router.post('/', async (req: Request, res: Response): Promise<void> => {
+	try {
+		const { world_id, quiz_name, quiz_content, order_number } = req.body;
+		if (
+			!world_id ||
+			!quiz_name ||
+			!order_number ||
+			world_id < 0 ||
+			order_number < 0
+		) {
+			res
+				.status(400)
+				.json({ error: 'World id, quiz name or order number missing' });
+			return;
+		}
+		const result = await pool.query(
+			'INSERT INTO quiz (world_id, quiz_name, quiz_content, order_number) VALUES ($1, $2, $3, $4) RETURNING *',
+			[world_id, quiz_name, JSON.stringify(quiz_content), order_number],
+		);
+		res.status(201).json(result.rows[0]);
+	} catch (err) {
+		console.error('Insert failed', err);
+		res.status(500).json({ error: 'Insert failed' });
+	}
 });
 
-/** 
+/**
  * @openapi
  * /api/quiz/{id}:
  *   put:
@@ -170,7 +200,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
  *         required: true
  *         description: Numeric ID of the quiz to update
  *     requestBody:
- *       description: quiz content json 
+ *       description: quiz content json
  *       required: true
  *       content:
  *         application/json:
@@ -182,29 +212,44 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '201':
  *         description: Created
+ * 		 '400':
+ * 			description: Invalid ID format
  *       '500':
  *         description: Insert failed
-*/
+ */
 
-router.put("/:id", async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query(
-            "UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *",
-            [req.body, id]
-        );
-        if (result.rowCount === 0) {
-            res.status(400).json({ error: "ID not found" });
-            return;
-        };
-        res.json({ message: "Updated successfully", updated: result.rows[0] });
-    } catch (err) {
-        console.error("Update failed:", err);
-        res.status(500).json({ error: "Update failed" });
-    }
+router.put('/:id', async (req: Request, res: Response): Promise<void> => {
+	try {
+		const { id } = req.params;
+
+		if (id == null || id.trim() === '' || Number.isNaN(Number(id))) {
+			res.status(400).json({ error: 'Invalid ID format' });
+			return;
+		}
+
+		if (req.body === undefined) {
+			res.status(400).json({ error: 'Request body must be valid JSON' });
+			return;
+		}
+
+		const result = await pool.query(
+			'UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *',
+			[JSON.stringify(req.body), id],
+		);
+		if (result.rowCount === 0) {
+			res.status(400).json({ error: 'ID not found' });
+			return;
+		}
+		res
+			.status(201)
+			.json({ message: 'Updated successfully', updated: result.rows[0] });
+	} catch (err) {
+		console.error('Update failed:', err);
+		res.status(500).json({ error: 'Update failed' });
+	}
 });
 
-/** 
+/**
  * @openapi
  * /api/quiz/{id}:
  *   delete:
@@ -226,24 +271,24 @@ router.put("/:id", async (req: Request, res: Response): Promise<void> => {
  *         description: ID not found
  *       '500':
  *         description: Delete failed
-*/
+ */
 
-router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query(
-            "DELETE FROM quiz WHERE quiz_id = $1 RETURNING *",
-            [id]
-        );
-        if (result.rowCount === 0) {
-            res.status(404).json({ error: "ID not found" });
-            return;
-        };
-        res.json({ message: "Deleted successfully", deleted: result.rows[0] });
-    } catch (err) {
-        console.error("Delete failed", err);
-        res.status(500).json({ error: "Delete failed" });
-    }
+router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+	try {
+		const { id } = req.params;
+		const result = await pool.query(
+			'DELETE FROM quiz WHERE quiz_id = $1 RETURNING *',
+			[id],
+		);
+		if (result.rowCount === 0) {
+			res.status(404).json({ error: 'ID not found' });
+			return;
+		}
+		res.json({ message: 'Deleted successfully', deleted: result.rows[0] });
+	} catch (err) {
+		console.error('Delete failed', err);
+		res.status(500).json({ error: 'Delete failed' });
+	}
 });
 
 export default router;
