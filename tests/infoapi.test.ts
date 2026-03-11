@@ -47,14 +47,14 @@ describe("Info API Integration Tests", () => {
 
     it("should contain the test info items", async () => {
       const res = await request(app).get("/api/info");
-      const titles = res.body.map((item: any) => item.title);
+      const titles = res.body.map((item: { title: string }) => item.title);
       expect(titles).toContain(TEST_TITLE_1);
       expect(titles).toContain(TEST_TITLE_2);
     });
 
     it("should return items with id, title, and content fields", async () => {
       const res = await request(app).get("/api/info");
-      res.body.forEach((item: any) => {
+      res.body.forEach((item: { id: number; title: string; content: string }) => {
         expect(item).toHaveProperty("id");
         expect(item).toHaveProperty("title");
         expect(item).toHaveProperty("content");
@@ -173,7 +173,7 @@ describe("Info API Integration Tests", () => {
     afterEach(async () => {
       try {
         await pool.query("DELETE FROM info WHERE id = $1", [deleteId]);
-      } catch (err) {
+      } catch {
         // already deleted in test
       }
     });
@@ -227,7 +227,7 @@ describe("Info API Integration Tests", () => {
     afterEach(async () => {
       try {
         await pool.query("DELETE FROM info WHERE id = $1", [putId]);
-      } catch (err) {
+      } catch {
         // already deleted in test
       }
     });
