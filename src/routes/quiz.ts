@@ -88,8 +88,8 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '200':
  *         description: OK
- * 		 '400':
- * 			description: Invalid ID format
+ *       '400':
+ *         description: Invalid ID format
  *       '404':
  *         description: ID not found
  *       '500':
@@ -212,8 +212,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  *     responses:
  *       '201':
  *         description: Created
- * 		 '400':
- * 			description: Invalid ID format
+ *       '400':
+ *         description: Invalid ID format
  *       '500':
  *         description: Insert failed
  */
