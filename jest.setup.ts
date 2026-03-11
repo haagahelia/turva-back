@@ -1,3 +1,3 @@
-import dotaenv from "dotenv";
+import dotenv from "dotenv";
 
-dotaenv.config({ path: ".env.test" });
+dotenv.config({ path: ".env.test" });
