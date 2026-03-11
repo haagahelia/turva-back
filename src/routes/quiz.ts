@@ -51,7 +51,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 	try {
 		const { id } = req.params;
 
-		if (id == null || id.trim() === '' || Number.isNaN(Number(id))) {
+		if (typeof id !== 'string' || id.trim() === '' || Number.isNaN(Number(id))) {
 			res.status(400).json({ error: 'Invalid ID format' });
 			return;
 		}
@@ -103,7 +103,7 @@ router.get(
 			const { world_id } = req.params;
 
 			if (
-				world_id == null ||
+				typeof world_id !== 'string' ||
 				world_id.trim() === '' ||
 				Number.isNaN(Number(world_id))
 			) {
@@ -222,7 +222,7 @@ router.put('/:id', async (req: Request, res: Response): Promise<void> => {
 	try {
 		const { id } = req.params;
 
-		if (id == null || id.trim() === '' || Number.isNaN(Number(id))) {
+		if (typeof id !== 'string' || id.trim() === '' || Number.isNaN(Number(id))) {
 			res.status(400).json({ error: 'Invalid ID format' });
 			return;
 		}
