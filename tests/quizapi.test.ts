@@ -609,7 +609,7 @@ describe('Quiz api integration tests', () => {
 				await pool.query('DELETE FROM Quiz WHERE quiz_id = $1', [
 					deleteTestQuizId,
 				]);
-			} catch (err) {
+			} catch {
 				// Quiz may already be deleted in test
 			}
 		});
