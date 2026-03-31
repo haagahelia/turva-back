@@ -86,7 +86,20 @@ CREATE TABLE IF NOT EXISTS User_Completed_Quiz (
     FOREIGN KEY (quiz_id) REFERENCES Quiz(quiz_id)
 );
 
-
+-- Create Crisis Team table
+CREATE TABLE IF NOT EXISTS CrisisTeam (
+    contact_id SERIAL PRIMARY KEY,
+    organization_id INT NOT NULL,
+    name_fi VARCHAR(255) NOT NULL,
+    name_en VARCHAR(255) NOT NULL,
+    role_fi VARCHAR(255) NOT NULL,
+    role_en VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    order_number BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    FOREIGN KEY (organization_id) REFERENCES Organization(organization_id)
+);
 
 -- SAMPLE INSERT STATEMENTS
 -- ============================================
@@ -1001,3 +1014,13 @@ VALUES (
     }',
     9
 );
+
+INSERT INTO CrisisTeam (organization_id, name_fi, name_en, role_fi, role_en, phone, order_number)
+VALUES
+  (1, 'Teemu Kokko',    'Teemu Kokko',    'Rehtori',                      'Rector',                    '050 555 1131',  1),
+  (1, 'Minna Hiillos',  'Minna Hiillos',  'Vararehtori',                  'Vice Rector',               '050 583 9521',  2),
+  (1, 'Kari Salmi',     'Kari Salmi',     'Hallintojohtaja',              'Administrative Director',   '0400 675 114',  3),
+  (1, 'Ari Nevalainen', 'Ari Nevalainen', 'Viestintäpäällikkö',           'Communications Manager',    '040 488 7008',  4),
+  (1, 'Jenni Most',     'Jenni Most',     'Toimitilapäällikkö',           'Facilities Manager',        '040 488 7144',  5),
+  (1, 'Virpi Virtanen', 'Virpi Virtanen', 'ICT-infrastruktuuripäällikkö', 'ICT-infrastructure Manager','050 911 1644',  6),
+  (1, 'Mia Kivelä',     'Mia Kivelä',     'Turvallisuuspäällikkö',        'Security Manager',          '050 911 1644',  7);
