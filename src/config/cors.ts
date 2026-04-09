@@ -3,6 +3,7 @@
 export const corsOptions = {
     origin: [
         "http://localhost:3000",
+        "http://localhost:8081",
         "https://localhost:5432",
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
