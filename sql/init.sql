@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS Quiz (
 CREATE TABLE IF NOT EXISTS User_Completed_Quiz (
     user_id INT NOT NULL,
     quiz_id INT NOT NULL,
+    score INTEGER NOT NULL DEFAULT 0,
+    time_spent_seconds INTEGER NOT NULL DEFAULT 0,
     completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, quiz_id),
     FOREIGN KEY (user_id) REFERENCES TurvaUser(user_id),
@@ -1024,3 +1026,14 @@ VALUES
   (1, 'Jenni Most',     'Jenni Most',     'Toimitilapäällikkö',           'Facilities Manager',        '040 488 7144',  5),
   (1, 'Virpi Virtanen', 'Virpi Virtanen', 'ICT-infrastruktuuripäällikkö', 'ICT-infrastructure Manager','050 911 1644',  6),
   (1, 'Mia Kivelä',     'Mia Kivelä',     'Turvallisuuspäällikkö',        'Security Manager',          '050 911 1644',  7);
+  
+-- Sample QUIZ COMPLETIONS FOR USER 1 (Jane Doe)
+INSERT INTO User_Completed_Quiz (user_id, quiz_id, score, time_spent_seconds)
+VALUES 
+    (1, 1, 3, 120),   -- Quiz 1
+    (1, 2, 2, 90),    -- Quiz 2
+    (1, 3, 3, 150)    -- Quiz 3
+ON CONFLICT (user_id, quiz_id) DO UPDATE SET 
+    score = EXCLUDED.score,
+    time_spent_seconds = EXCLUDED.time_spent_seconds,
+    completed_at = CURRENT_TIMESTAMP;
