@@ -71,11 +71,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     await pool.query(
       `INSERT INTO User_Completed_Quiz (user_id, quiz_id, score, time_spent_seconds)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (user_id, quiz_id) DO UPDATE
-       score = EXCLUDED.score,
-       time_spent_seconds = EXCLUDED.time_spent_seconds,
-       completed_at = CURRENT_TIMESTAMP`,
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (user_id, quiz_id) DO UPDATE SET
+        score = EXCLUDED.score,
+        time_spent_seconds = EXCLUDED.time_spent_seconds,
+        completed_at = CURRENT_TIMESTAMP`,
       [userId, quiz_id, correct_answers, time_spent_seconds]
     );
 
