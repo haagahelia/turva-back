@@ -6,6 +6,7 @@ import worldRouter from "./world";
 import crisisRouter from "./crisisTeam";
 import userRouter from "./user";
 import quizResult from "./quizResult";
+import worldBonus from "./worldBonus";
 
 const router: Router = Router();
 
@@ -25,5 +26,6 @@ router.use("/world", worldRouter);
 router.use("/crisis-team", crisisRouter);
 router.use("/user", userRouter);
 router.use("/quiz-result", quizResult);
+router.use("/world-bonus", worldBonus);
 
 export default router;
