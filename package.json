@@ -1,7 +1,7 @@
 {
   "name": "turva-back",
   "version": "1.0.0",
-  "description": "Backend api server for the TurvaAppi",
+  "description": "Backend api server for the TurvaOppi",
   "main": "index.js",
   "scripts": {
     "test": "dotenv -e .env.test -- jest --runInBand",
