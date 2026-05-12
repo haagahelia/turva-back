@@ -2,6 +2,10 @@
 
 Backend API server for the TurvaOppi
 
+## Documentation
+
+- Backend technical documentation: [BACKEND_DOCUMENTATION.md](BACKEND_DOCUMENTATION.md)
+
 ## Project Setup
 
 ### Prerequisites
@@ -30,6 +34,14 @@ Backend API server for the TurvaOppi
     ```bash
     docker compose up
     ```
+
+### Available Scripts
+
+- `npm run dev` - Run the server in development mode
+- `npm run build` - Type-check and bundle the server
+- `npm start` - Run the bundled server
+- `npm test` - Run Jest tests
+- `npm run lint` - Run ESLint
 
 ### Tech Stack
 
