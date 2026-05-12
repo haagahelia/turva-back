@@ -113,6 +113,16 @@ CREATE TABLE IF NOT EXISTS User_Completed_World (
     FOREIGN KEY (world_id) REFERENCES World(world_id)
 );
 
+-- Create Physical Reward table
+CREATE TABLE IF NOT EXISTS Physical_Reward (
+    reward_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    reward_code VARCHAR(64) UNIQUE NOT NULL,
+    claimed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES TurvaUser(user_id)
+);
+
 -- SAMPLE INSERT STATEMENTS
 -- ============================================
 
