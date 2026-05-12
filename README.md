@@ -4,7 +4,7 @@ Backend API server for the TurvaOppi
 
 ## Documentation
 
-- Backend technical documentation: [BACKEND_DOCUMENTATION.md](BACKEND_DOCUMENTATION.md)
+- Project guide: [ProjectGuide.md](ProjectGuide.md)
 
 ## Project Setup
 
