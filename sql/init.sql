@@ -1039,8 +1039,8 @@ VALUES (
 
 INSERT INTO CrisisTeam (organization_id, name_fi, name_en, role_fi, role_en, phone, order_number)
 VALUES
-  (1, 'Teemu Kokko',    'Teemu Kokko',    'Rehtori',                      'Rector',                    '050 555 1131',  1),
-  (1, 'Minna Hiillos',  'Minna Hiillos',  'Vararehtori',                  'Vice Rector',               '050 583 9521',  2),
+  (1, 'Teemu Kokko',    'Teemu Kokko',    'Rehtori',                      'Principal',                    '050 555 1131',  1),
+  (1, 'Minna Hiillos',  'Minna Hiillos',  'Vararehtori',                  'Vice Principal',               '050 583 9521',  2),
   (1, 'Kari Salmi',     'Kari Salmi',     'Hallintojohtaja',              'Administrative Director',   '0400 675 114',  3),
   (1, 'Ari Nevalainen', 'Ari Nevalainen', 'Viestintäpäällikkö',           'Communications Manager',    '040 488 7008',  4),
   (1, 'Jenni Most',     'Jenni Most',     'Toimitilapäällikkö',           'Facilities Manager',        '040 488 7144',  5),
