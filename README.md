@@ -18,22 +18,22 @@ Backend API server for the TurvaOppi
 
 1. Clone the repository
 
-    ```bash
-    git clone https://github.com/haagahelia/turva-back.git
-    cd turva-back
-    ```
+   ```bash
+   git clone https://github.com/haagahelia/turva-back.git
+   cd turva-back
+   ```
 
 2. Set environmental variables
 
-    ```bash
-    cp .env.example .env
-    ```
+   ```bash
+   cp .env.example .env
+   ```
 
 3. Build and run the project
 
-    ```bash
-    docker compose up
-    ```
+   ```bash
+   docker compose up
+   ```
 
 ### Available Scripts
 

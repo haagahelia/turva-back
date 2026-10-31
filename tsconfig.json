@@ -1,41 +1,29 @@
 {
-    "ts-node": {
-        "require": [
-            "tsconfig-paths/register"
-        ]
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  },
+  "compilerOptions": {
+    "target": "es2024",
+    "module": "commonjs",
+    "outDir": "./build/",
+    "resolveJsonModule": true,
+    /* Polut ja moduulit */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
     },
-    "compilerOptions": {
-        "target": "es2024",
-        "module": "commonjs",
-        "outDir": "./build/",
-        "resolveJsonModule": true,
-        /* Polut ja moduulit */
-        "baseUrl": ".",
-        "paths": {
-            "@/*": [
-                "src/*"
-            ]
-        },
-        "moduleResolution": "node",
-        /* Tyypitykset */
-        "strict": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true,
-        /* Laadunvalvonta */
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "noImplicitReturns": true,
-        "noFallthroughCasesInSwitch": true
-    },
-    "include": [
-        "src/**/*",
-        "tests/**/*",
-        "jest.config.ts",
-        "jest.setup.ts"
-    ],
-    "exclude": [
-        "node_modules",
-        "build"
-    ]
+    "moduleResolution": "node",
+    /* Tyypitykset */
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    /* Laadunvalvonta */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/**/*", "tests/**/*", "jest.config.ts", "jest.setup.ts"],
+  "exclude": ["node_modules", "build"]
 }
