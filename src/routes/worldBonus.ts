@@ -1,7 +1,7 @@
-import { Router, Request, Response } from "express";
-import { pool } from "../config/db";
+import { Controller, Get, Req, Res } from "@nestjs/common";
+import type { Request, Response } from "express";
 
-const router: Router = Router();
+import { pool } from "../config/db";
 
 /**
  * @openapi
@@ -37,9 +37,13 @@ const router: Router = Router();
  *       '500':
  *         description: Database error
  */
-router.get(
-  "/user/:user_id",
-  async (req: Request, res: Response): Promise<void> => {
+@Controller("world-bonus")
+export class WorldBonusController {
+  @Get("/user/:user_id")
+  async getUserWorldBonus(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<void> {
     try {
       const { user_id } = req.params;
 
@@ -68,6 +72,4 @@ router.get(
       res.status(500).json({ error: "Database error" });
     }
   }
-);
-
-export default router;
+}

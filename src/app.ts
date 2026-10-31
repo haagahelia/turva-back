@@ -1,14 +1,21 @@
-import express, { Express } from "express";
-import routes from "./routes";
-import cors from "cors";
+import { INestApplication } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
 import { corsOptions } from "./config/cors";
+import swaggerDocs from "./utils/swagger";
 
-const createApp = (): Express => {
-  const app: Express = express();
+const createApp = async (): Promise<INestApplication> => {
+  const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix("api");
+  app.enableCors(corsOptions);
+  await app.init();
 
-  app.use(cors(corsOptions));
-  app.use(express.json());
-  app.use("/api", routes);
+  if (process.env.ENABLE_SWAGGER === "true") {
+    swaggerDocs(
+      app.getHttpAdapter().getInstance(),
+      Number(process.env.PORT) || 3000
+    );
+  }
 
   return app;
 };

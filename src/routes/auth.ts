@@ -1,17 +1,57 @@
+import { Controller, Post, Req, Res } from "@nestjs/common";
+import type { Request, Response } from "express";
+
 import { generatePin } from "@/utils/pinGenerator";
-import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { validateEmail, verifyPin, verifyUser } from "@/utils/verification";
 import { pool } from "@/config/db";
 import { generateToken } from "@/utils/tokenGenerator";
 import { sendEmail } from "@/utils/emailer";
 
-const router: Router = Router();
-
 // TODO?: Add email confirmation before completing register??
-router.post(
-  "/register",
-  async (req: Request, res: Response): Promise<Response | void> => {
+@Controller("auth")
+export class AuthController {
+  /**
+   * @openapi
+   * /api/auth/register:
+   *   post:
+   *     summary: Register a user account
+   *     description: Creates an account using the supplied username, email, and organization
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - username
+   *               - email
+   *               - organizationId
+   *             properties:
+   *               username:
+   *                 type: string
+   *                 example: learner
+   *               email:
+   *                 type: string
+   *                 example: learner@school.fi
+   *               organizationId:
+   *                 type: integer
+   *                 example: 1
+   *     tags:
+   *       - Login
+   *     responses:
+   *       '201':
+   *         description: Account created
+   *       '400':
+   *         description: Required fields missing or email address invalid
+   *       '409':
+   *         description: Email or username already in use
+   */
+  @Post("/register")
+  async registerUser(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<Response | void> {
     const username = req.body.username;
     const userEmail = req.body.email;
     const organizationId = req.body.organizationId;
@@ -43,36 +83,36 @@ router.post(
     await pool.query(registerQuery, values);
     return res.status(201).json({ message: "Account created!" });
   }
-);
 
-/**
- * @openapi
- * /api/auth/login/:
- *   post:
- *     summary: Email based login
- *     description: Sends a code to provided email address that is used for login and also saves it to database
- *     requestBody:
- *       description: User email
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             properties:
- *               email:
- *                 type: string
- *                 example: example@school.fi
- *     tags:
- *       - Login
- *     responses:
- *       '200':
- *         description: Email sent
- *       '400':
- *         description: No email received or not valid
- */
-
-router.post(
-  "/login",
-  async (req: Request, res: Response): Promise<Response | void> => {
+  /**
+   * @openapi
+   * /api/auth/login/:
+   *   post:
+   *     summary: Email based login
+   *     description: Sends a code to provided email address that is used for login and also saves it to database
+   *     requestBody:
+   *       description: User email
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 example: example@school.fi
+   *     tags:
+   *       - Login
+   *     responses:
+   *       '200':
+   *         description: Email sent
+   *       '400':
+   *         description: No email received or not valid
+   */
+  @Post("/login")
+  async requestLoginCode(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<Response | void> {
     const userEmail = req.body.email;
     const username = req.body.username;
     console.log("email: " + userEmail);
@@ -104,41 +144,41 @@ router.post(
       return res.status(401).json({ error: "Invalid credentials" });
     }
   }
-);
 
-/**
- * @openapi
- * /api/auth/verify:
- *   post:
- *     summary: Login token
- *     description: Send the varification code from email login to get a JWT token and login. Will check if code and email match
- *     requestBody:
- *       description: Verification code
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             properties:
- *               email:
- *                 type: string
- *                 example: example@school.fi
- *               verificationCode:
- *                 type: string
- *                 example: code
- *     tags:
- *       - Login
- *     responses:
- *       '200':
- *         description: Login successful
- *       '400':
- *         description: No verification code received
- *       '401':
- *         description: Code is invalid
- */
-
-router.post(
-  "/verify",
-  async (req: Request, res: Response): Promise<Response | void> => {
+  /**
+   * @openapi
+   * /api/auth/verify:
+   *   post:
+   *     summary: Login token
+   *     description: Send the varification code from email login to get a JWT token and login. Will check if code and email match
+   *     requestBody:
+   *       description: Verification code
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 example: example@school.fi
+   *               verificationCode:
+   *                 type: string
+   *                 example: code
+   *     tags:
+   *       - Login
+   *     responses:
+   *       '200':
+   *         description: Login successful
+   *       '400':
+   *         description: No verification code received
+   *       '401':
+   *         description: Code is invalid
+   */
+  @Post("/verify")
+  async verifyLoginCode(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<Response | void> {
     const email = req.body.email;
     const username = req.body.username;
     const verificationCode = req.body.verificationCode;
@@ -157,6 +197,4 @@ router.post(
     }
     return res.status(401).json({ error: "Code is invalid." });
   }
-);
-
-export default router;
+}

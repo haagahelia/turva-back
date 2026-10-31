@@ -1,33 +1,39 @@
-import { Router, Request, Response } from "express";
-import authRouter from "./auth";
-import infoRouter from "./info";
-import quizRouter from "./quiz";
-import worldRouter from "./world";
-import crisisRouter from "./crisisTeam";
-import userRouter from "./user";
-import quizResult from "./quizResult";
-import worldBonus from "./worldBonus";
-import physicalReward from "./physicalReward";
+import { Controller, Get, Res } from "@nestjs/common";
+import type { Response } from "express";
 
-const router: Router = Router();
+@Controller()
+export class RoutesController {
+  /**
+   * @openapi
+   * /api/ping:
+   *   get:
+   *     summary: Check API availability
+   *     description: Returns a plain-text response to confirm the API is running
+   *     tags:
+   *       - Status
+   *     responses:
+   *       '200':
+   *         description: API is available
+   */
+  @Get("ping")
+  ping(@Res() res: Response): void {
+    res.send("pong");
+  }
 
-router.get("/ping", (_req: Request, res: Response) => {
-  res.send("pong");
-});
-
-router.get("/", (_req: Request, res: Response): void => {
-  res.json("Hello world!");
-});
-
-// Define actual routes
-router.use("/auth", authRouter);
-router.use("/info", infoRouter);
-router.use("/quiz", quizRouter);
-router.use("/world", worldRouter);
-router.use("/crisis-team", crisisRouter);
-router.use("/user", userRouter);
-router.use("/quiz-result", quizResult);
-router.use("/world-bonus", worldBonus);
-router.use("/physical-reward", physicalReward);
-
-export default router;
+  /**
+   * @openapi
+   * /api:
+   *   get:
+   *     summary: Get the API greeting
+   *     description: Returns a greeting from the API root
+   *     tags:
+   *       - Status
+   *     responses:
+   *       '200':
+   *         description: Greeting returned successfully
+   */
+  @Get()
+  root(@Res() res: Response): void {
+    res.json("Hello world!");
+  }
+}

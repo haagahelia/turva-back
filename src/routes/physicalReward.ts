@@ -1,9 +1,9 @@
-import { Router, Request, Response } from "express";
+import { Controller, Get, Post, Req, Res } from "@nestjs/common";
+import type { Request, Response } from "express";
+
 import { pool } from "../config/db";
 import { verifyToken } from "../utils/verification";
 import crypto from "crypto";
-
-const router: Router = Router();
 
 const successHtml = (profileName: string) => `
 <!DOCTYPE html>
@@ -170,92 +170,100 @@ const notFoundHtml = () => `
  *       '500':
  *         description: Database error
  */
-router.post("/claim", async (req: Request, res: Response): Promise<void> => {
-  try {
-    const decoded = verifyToken(req, res);
-    if (!decoded || typeof decoded !== "object" || !("email" in decoded))
-      return;
-    const email = (decoded as { email: string }).email;
+@Controller("physical-reward")
+export class PhysicalRewardController {
+  @Post("/claim")
+  async claimPhysicalReward(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<void> {
+    try {
+      const decoded = verifyToken(req, res);
+      if (!decoded || typeof decoded !== "object" || !("email" in decoded))
+        return;
+      const email = (decoded as { email: string }).email;
 
-    const userResult = await pool.query(
-      "SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL",
-      [email]
-    );
-    if (userResult.rows.length === 0) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-    const userId = userResult.rows[0].user_id;
-
-    const totalWorldsResult = await pool.query(
-      "SELECT COUNT(*) as total FROM World"
-    );
-    const totalWorlds = parseInt(totalWorldsResult.rows[0].total, 10);
-
-    const completedResult = await pool.query(
-      "SELECT COUNT(*) as completed FROM User_Completed_World WHERE user_id = $1",
-      [userId]
-    );
-    const completedWorlds = parseInt(completedResult.rows[0].completed, 10);
-
-    if (completedWorlds < totalWorlds || totalWorlds === 0) {
-      res.status(403).json({
-        error: "Not all worlds completed",
-        completedWorlds,
-        totalWorlds,
-      });
-      return;
-    }
-
-    const existingReward = await pool.query(
-      "SELECT reward_code, claimed_at FROM Physical_Reward WHERE user_id = $1",
-      [userId]
-    );
-
-    if (existingReward.rows.length > 0) {
-      const { reward_code, claimed_at } = existingReward.rows[0];
-      if (claimed_at) {
-        res.status(200).json({ alreadyClaimed: true, reward_code: null });
-      } else {
-        res.status(200).json({ alreadyClaimed: false, reward_code });
+      const userResult = await pool.query(
+        "SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL",
+        [email]
+      );
+      if (userResult.rows.length === 0) {
+        res.status(404).json({ error: "User not found" });
+        return;
       }
-      return;
+      const userId = userResult.rows[0].user_id;
+
+      const totalWorldsResult = await pool.query(
+        "SELECT COUNT(*) as total FROM World"
+      );
+      const totalWorlds = parseInt(totalWorldsResult.rows[0].total, 10);
+
+      const completedResult = await pool.query(
+        "SELECT COUNT(*) as completed FROM User_Completed_World WHERE user_id = $1",
+        [userId]
+      );
+      const completedWorlds = parseInt(completedResult.rows[0].completed, 10);
+
+      if (completedWorlds < totalWorlds || totalWorlds === 0) {
+        res.status(403).json({
+          error: "Not all worlds completed",
+          completedWorlds,
+          totalWorlds,
+        });
+        return;
+      }
+
+      const existingReward = await pool.query(
+        "SELECT reward_code, claimed_at FROM Physical_Reward WHERE user_id = $1",
+        [userId]
+      );
+
+      if (existingReward.rows.length > 0) {
+        const { reward_code, claimed_at } = existingReward.rows[0];
+        if (claimed_at) {
+          res.status(200).json({ alreadyClaimed: true, reward_code: null });
+        } else {
+          res.status(200).json({ alreadyClaimed: false, reward_code });
+        }
+        return;
+      }
+
+      const rewardCode = crypto.randomUUID();
+      await pool.query(
+        "INSERT INTO Physical_Reward (user_id, reward_code) VALUES ($1, $2)",
+        [userId, rewardCode]
+      );
+
+      res.status(201).json({ alreadyClaimed: false, reward_code: rewardCode });
+    } catch (err) {
+      console.error("Error claiming reward:", err);
+      res.status(500).json({ error: "Database error" });
     }
-
-    const rewardCode = crypto.randomUUID();
-    await pool.query(
-      "INSERT INTO Physical_Reward (user_id, reward_code) VALUES ($1, $2)",
-      [userId, rewardCode]
-    );
-
-    res.status(201).json({ alreadyClaimed: false, reward_code: rewardCode });
-  } catch (err) {
-    console.error("Error claiming reward:", err);
-    res.status(500).json({ error: "Database error" });
   }
-});
 
-/**
- * @openapi
- * /api/physical-reward/verify/{code}:
- *   get:
- *     summary: Verify and claim physical reward
- *     description: Verifies the QR code and marks it as claimed. Returns HTML page with result.
- *     tags:
- *       - Physical Reward
- *     parameters:
- *       - in: path
- *         name: code
- *         schema:
- *           type: string
- *         required: true
- *     responses:
- *       '200':
- *         description: HTML page with result
- */
-router.get(
-  "/verify/:code",
-  async (req: Request, res: Response): Promise<void> => {
+  /**
+   * @openapi
+   * /api/physical-reward/verify/{code}:
+   *   get:
+   *     summary: Verify and claim physical reward
+   *     description: Verifies the QR code and marks it as claimed. Returns HTML page with result.
+   *     tags:
+   *       - Physical Reward
+   *     parameters:
+   *       - in: path
+   *         name: code
+   *         schema:
+   *           type: string
+   *         required: true
+   *     responses:
+   *       '200':
+   *         description: HTML page with result
+   */
+  @Get("/verify/:code")
+  async verifyPhysicalReward(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<void> {
     try {
       const { code } = req.params;
 
@@ -294,6 +302,4 @@ router.get(
       res.status(500).send(notFoundHtml());
     }
   }
-);
-
-export default router;
+}

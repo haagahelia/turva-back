@@ -1,7 +1,7 @@
-import { Router, Request, Response } from "express";
-import { pool } from "../config/db";
+import { Controller, Get, Req, Res } from "@nestjs/common";
+import type { Request, Response } from "express";
 
-const router: Router = Router();
+import { pool } from "../config/db";
 
 /**
  * @openapi
@@ -17,15 +17,19 @@ const router: Router = Router();
  *       '500':
  *         description: Database query failed
  */
-
-router.get("/", async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await pool.query("SELECT * FROM World;");
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error in query:", err);
-    res.status(500).json({ error: "Database query failed" });
+@Controller("world")
+export class WorldController {
+  @Get("/")
+  async getAllWorlds(
+    @Req() _req: Request,
+    @Res() res: Response
+  ): Promise<void> {
+    try {
+      const result = await pool.query("SELECT * FROM World;");
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Error in query:", err);
+      res.status(500).json({ error: "Database query failed" });
+    }
   }
-});
-
-export default router;
+}

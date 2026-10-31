@@ -10,7 +10,7 @@ Backend API server for the TurvaOppi
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v18 or higher
+- [Node.js](https://nodejs.org/) v20 or higher
 - npm
 - [Docker](https://docs.docker.com/)
 
@@ -38,11 +38,11 @@ Backend API server for the TurvaOppi
 ### Available Scripts
 
 - `npm run dev` - Run the server in development mode
-- `npm run build` - Type-check and bundle the server
-- `npm start` - Run the bundled server
+- `npm run build` - Compile the server to `build/`
+- `npm start` - Run the compiled server
 - `npm test` - Run Jest tests
 - `npm run lint` - Run ESLint
 
 ### Tech Stack
 
-Developed with TypeScript and Node
+Developed with NestJS, TypeScript, and Node.js. The API is served under `/api`.

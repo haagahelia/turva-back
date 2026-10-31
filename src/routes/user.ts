@@ -1,8 +1,8 @@
-import { Router, Request, Response } from "express";
+import { Controller, Get, Req, Res } from "@nestjs/common";
+import type { Request, Response } from "express";
+
 import { pool } from "@/config/db";
 import { verifyToken } from "@/utils/verification";
-
-const router: Router = Router();
 
 /**
  * @openapi
@@ -24,10 +24,13 @@ const router: Router = Router();
  *       '500':
  *         description: Database query failed
  */
-
-router.get(
-  "/profile",
-  async (req: Request, res: Response): Promise<Response | void> => {
+@Controller("user")
+export class UserController {
+  @Get("/profile")
+  async getProfile(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<Response | void> {
     try {
       const decoded = verifyToken(req, res);
 
@@ -62,6 +65,4 @@ router.get(
       return res.status(500).json({ error: "Database query failed" });
     }
   }
-);
-
-export default router;
+}

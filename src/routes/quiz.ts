@@ -1,7 +1,7 @@
-import { Router, Request, Response } from "express";
-import { pool } from "../config/db";
+import { Controller, Get, Post, Put, Delete, Req, Res } from "@nestjs/common";
+import type { Request, Response } from "express";
 
-const router: Router = Router();
+import { pool } from "../config/db";
 
 /**
  * @openapi
@@ -17,92 +17,98 @@ const router: Router = Router();
  *       '500':
  *         description: Database query failed
  */
-
-router.get("/", async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await pool.query("SELECT * FROM Quiz;");
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error in query:", err);
-    res.status(500).json({ error: "Database query failed" });
-  }
-});
-
-/**
- * @openapi
- * /api/quiz/{id}:
- *   get:
- *     summary: Get quiz by ID
- *     description: Searches a specific quiz by its ID and returns it in JSON format
- *     tags:
- *       - Quiz
- *     responses:
- *       '200':
- *         description: OK
- *       '400':
- *         description: Invalid ID format
- *       '404':
- *         description: ID not found
- *       '500':
- *         description: Database query failed
- */
-
-router.get("/:id", async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    if (
-      typeof id !== "string" ||
-      id.trim() === "" ||
-      Number.isNaN(Number(id))
-    ) {
-      res.status(400).json({ error: "Invalid ID format" });
-      return;
+@Controller("quiz")
+export class QuizController {
+  @Get("/")
+  async getAllQuizzes(
+    @Req() _req: Request,
+    @Res() res: Response
+  ): Promise<void> {
+    try {
+      const result = await pool.query("SELECT * FROM Quiz;");
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Error in query:", err);
+      res.status(500).json({ error: "Database query failed" });
     }
-
-    const result = await pool.query("SELECT * FROM quiz WHERE quiz_id = $1", [
-      id,
-    ]);
-    if (result.rowCount === 0) {
-      res.status(404).json({ error: "ID not found" });
-      return;
-    }
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error in query:", err);
-    res.status(500).json({ error: "Database query failed" });
   }
-});
 
-/**
- * @openapi
- * /api/quiz/world/{world_id}/quizzes:
- *   get:
- *     summary: Get quizzes by world ID
- *     description: Selects all from quiz where the world ID matches the provided world ID
- *     parameters:
- *       - in: path
- *         name: world_id
- *         schema:
- *           type: integer
- *         required: true
- *         description: Numeric ID of the world whose quizzes you want
- *     tags:
- *       - Quiz
- *     responses:
- *       '200':
- *         description: OK
- *       '400':
- *         description: Invalid ID format
- *       '404':
- *         description: ID not found
- *       '500':
- *         description: Database query failed
- */
+  /**
+   * @openapi
+   * /api/quiz/{id}:
+   *   get:
+   *     summary: Get quiz by ID
+   *     description: Searches a specific quiz by its ID and returns it in JSON format
+   *     tags:
+   *       - Quiz
+   *     responses:
+   *       '200':
+   *         description: OK
+   *       '400':
+   *         description: Invalid ID format
+   *       '404':
+   *         description: ID not found
+   *       '500':
+   *         description: Database query failed
+   */
+  @Get("/:id")
+  async getQuizById(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
 
-router.get(
-  "/world/:world_id/quizzes",
-  async (req: Request, res: Response): Promise<void> => {
+      if (
+        typeof id !== "string" ||
+        id.trim() === "" ||
+        Number.isNaN(Number(id))
+      ) {
+        res.status(400).json({ error: "Invalid ID format" });
+        return;
+      }
+
+      const result = await pool.query("SELECT * FROM quiz WHERE quiz_id = $1", [
+        id,
+      ]);
+      if (result.rowCount === 0) {
+        res.status(404).json({ error: "ID not found" });
+        return;
+      }
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Error in query:", err);
+      res.status(500).json({ error: "Database query failed" });
+    }
+  }
+
+  /**
+   * @openapi
+   * /api/quiz/world/{world_id}/quizzes:
+   *   get:
+   *     summary: Get quizzes by world ID
+   *     description: Selects all from quiz where the world ID matches the provided world ID
+   *     parameters:
+   *       - in: path
+   *         name: world_id
+   *         schema:
+   *           type: integer
+   *         required: true
+   *         description: Numeric ID of the world whose quizzes you want
+   *     tags:
+   *       - Quiz
+   *     responses:
+   *       '200':
+   *         description: OK
+   *       '400':
+   *         description: Invalid ID format
+   *       '404':
+   *         description: ID not found
+   *       '500':
+   *         description: Database query failed
+   */
+  @Get("/world/:world_id/quizzes")
+  async getQuizzesByWorldId(
+    @Req() req: Request,
+    @Res() res: Response
+  ): Promise<void> {
     try {
       const { world_id } = req.params;
 
@@ -129,174 +135,172 @@ router.get(
       res.status(500).json({ error: "Database query failed" });
     }
   }
-);
 
-/**
- * @openapi
- * /api/quiz:
- *   post:
- *     summary: Add new quiz to db
- *     description: Insert into quiz
- *     requestBody:
- *       description: title and content
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             properties:
- *               world_id:
- *                 type: integer
- *                 example: 1
- *               quiz_name:
- *                 type: string
- *                 example: New Quiz
- *               order_number:
- *                 type: integer
- *                 example: 1
- *     tags:
- *       - Quiz
- *     responses:
- *       '201':
- *         description: Created
- *       '400':
- *         description: world_id, quiz_name or order_number missing
- *       '500':
- *         description: Insert failed
- */
+  /**
+   * @openapi
+   * /api/quiz:
+   *   post:
+   *     summary: Add new quiz to db
+   *     description: Insert into quiz
+   *     requestBody:
+   *       description: title and content
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             properties:
+   *               world_id:
+   *                 type: integer
+   *                 example: 1
+   *               quiz_name:
+   *                 type: string
+   *                 example: New Quiz
+   *               order_number:
+   *                 type: integer
+   *                 example: 1
+   *     tags:
+   *       - Quiz
+   *     responses:
+   *       '201':
+   *         description: Created
+   *       '400':
+   *         description: world_id, quiz_name or order_number missing
+   *       '500':
+   *         description: Insert failed
+   */
+  @Post("/")
+  async createQuiz(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const { world_id, quiz_name, quiz_content, order_number } = req.body;
+      if (
+        !world_id ||
+        !quiz_name ||
+        !order_number ||
+        world_id < 0 ||
+        order_number < 0
+      ) {
+        res
+          .status(400)
+          .json({ error: "World id, quiz name or order number missing" });
+        return;
+      }
+      const result = await pool.query(
+        "INSERT INTO quiz (world_id, quiz_name, quiz_content, order_number) VALUES ($1, $2, $3, $4) RETURNING *",
+        [world_id, quiz_name, JSON.stringify(quiz_content), order_number]
+      );
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      console.error("Insert failed", err);
+      res.status(500).json({ error: "Insert failed" });
+    }
+  }
 
-router.post("/", async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { world_id, quiz_name, quiz_content, order_number } = req.body;
-    if (
-      !world_id ||
-      !quiz_name ||
-      !order_number ||
-      world_id < 0 ||
-      order_number < 0
-    ) {
+  /**
+   * @openapi
+   * /api/quiz/{id}:
+   *   put:
+   *     summary: Update Quiz content
+   *     description: Update quiz content for quiz where ID matches
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         schema:
+   *           type: integer
+   *         required: true
+   *         description: Numeric ID of the quiz to update
+   *     requestBody:
+   *       description: quiz content json
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: string
+   *             example: Paste the JSON in here!
+   *     tags:
+   *       - Quiz
+   *     responses:
+   *       '201':
+   *         description: Created
+   *       '400':
+   *         description: Invalid ID format
+   *       '500':
+   *         description: Insert failed
+   */
+  @Put("/:id")
+  async updateQuiz(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      if (
+        typeof id !== "string" ||
+        id.trim() === "" ||
+        Number.isNaN(Number(id))
+      ) {
+        res.status(400).json({ error: "Invalid ID format" });
+        return;
+      }
+
+      if (req.body === undefined) {
+        res.status(400).json({ error: "Request body must be valid JSON" });
+        return;
+      }
+
+      const result = await pool.query(
+        "UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *",
+        [JSON.stringify(req.body), id]
+      );
+      if (result.rowCount === 0) {
+        res.status(400).json({ error: "ID not found" });
+        return;
+      }
       res
-        .status(400)
-        .json({ error: "World id, quiz name or order number missing" });
-      return;
+        .status(201)
+        .json({ message: "Updated successfully", updated: result.rows[0] });
+    } catch (err) {
+      console.error("Update failed:", err);
+      res.status(500).json({ error: "Update failed" });
     }
-    const result = await pool.query(
-      "INSERT INTO quiz (world_id, quiz_name, quiz_content, order_number) VALUES ($1, $2, $3, $4) RETURNING *",
-      [world_id, quiz_name, JSON.stringify(quiz_content), order_number]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error("Insert failed", err);
-    res.status(500).json({ error: "Insert failed" });
   }
-});
 
-/**
- * @openapi
- * /api/quiz/{id}:
- *   put:
- *     summary: Update Quiz content
- *     description: Update quiz content for quiz where ID matches
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: integer
- *         required: true
- *         description: Numeric ID of the quiz to update
- *     requestBody:
- *       description: quiz content json
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: string
- *             example: Paste the JSON in here!
- *     tags:
- *       - Quiz
- *     responses:
- *       '201':
- *         description: Created
- *       '400':
- *         description: Invalid ID format
- *       '500':
- *         description: Insert failed
- */
-
-router.put("/:id", async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-
-    if (
-      typeof id !== "string" ||
-      id.trim() === "" ||
-      Number.isNaN(Number(id))
-    ) {
-      res.status(400).json({ error: "Invalid ID format" });
-      return;
+  /**
+   * @openapi
+   * /api/quiz/{id}:
+   *   delete:
+   *     summary: Delete quiz by ID
+   *     description: Delete a quiz where the ID you give matches the ID of the quiz you want to delete
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         schema:
+   *           type: integer
+   *         required: true
+   *         description: Numeric ID of the quiz you want to get
+   *     tags:
+   *       - Quiz
+   *     responses:
+   *       '200':
+   *         description: OK
+   *       '404':
+   *         description: ID not found
+   *       '500':
+   *         description: Delete failed
+   */
+  @Delete("/:id")
+  async deleteQuiz(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const result = await pool.query(
+        "DELETE FROM quiz WHERE quiz_id = $1 RETURNING *",
+        [id]
+      );
+      if (result.rowCount === 0) {
+        res.status(404).json({ error: "ID not found" });
+        return;
+      }
+      res.json({ message: "Deleted successfully", deleted: result.rows[0] });
+    } catch (err) {
+      console.error("Delete failed", err);
+      res.status(500).json({ error: "Delete failed" });
     }
-
-    if (req.body === undefined) {
-      res.status(400).json({ error: "Request body must be valid JSON" });
-      return;
-    }
-
-    const result = await pool.query(
-      "UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *",
-      [JSON.stringify(req.body), id]
-    );
-    if (result.rowCount === 0) {
-      res.status(400).json({ error: "ID not found" });
-      return;
-    }
-    res
-      .status(201)
-      .json({ message: "Updated successfully", updated: result.rows[0] });
-  } catch (err) {
-    console.error("Update failed:", err);
-    res.status(500).json({ error: "Update failed" });
   }
-});
-
-/**
- * @openapi
- * /api/quiz/{id}:
- *   delete:
- *     summary: Delete quiz by ID
- *     description: Delete a quiz where the ID you give matches the ID of the quiz you want to delete
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: integer
- *         required: true
- *         description: Numeric ID of the quiz you want to get
- *     tags:
- *       - Quiz
- *     responses:
- *       '200':
- *         description: OK
- *       '404':
- *         description: ID not found
- *       '500':
- *         description: Delete failed
- */
-
-router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query(
-      "DELETE FROM quiz WHERE quiz_id = $1 RETURNING *",
-      [id]
-    );
-    if (result.rowCount === 0) {
-      res.status(404).json({ error: "ID not found" });
-      return;
-    }
-    res.json({ message: "Deleted successfully", deleted: result.rows[0] });
-  } catch (err) {
-    console.error("Delete failed", err);
-    res.status(500).json({ error: "Delete failed" });
-  }
-});
-
-export default router;
+}

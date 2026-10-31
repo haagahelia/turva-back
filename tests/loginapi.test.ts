@@ -1,15 +1,23 @@
 import createApp from "../src/app";
 import request, { Response } from "supertest";
 import { connectDB, pool } from "../src/config/db";
-import { Express } from "express";
+import { INestApplication } from "@nestjs/common";
 
-const app: Express = createApp();
+let app: INestApplication;
+
+beforeAll(async () => {
+  app = await createApp();
+});
+
+afterAll(async () => {
+  await app.close();
+});
 
 //TESTS WILL FAIL IF HARD CODED VALUES ARE WRONG OR USER USED IN TESTING IS NOT IN THE DATABASE
 
 describe("GET /api/ping", () => {
   it("should return pong", async () => {
-    const res: Response = await request(app).get("/api/ping");
+    const res: Response = await request(app.getHttpServer()).get("/api/ping");
     expect(res.statusCode).toBe(200);
     expect(res.text).toBe("pong");
   });
@@ -31,7 +39,7 @@ describe("POST /api/auth/login", () => {
     const partialPayload = {
       username: "tester",
     };
-    const res: Response = await request(app)
+    const res: Response = await request(app.getHttpServer())
       .post("/api/auth/login")
       .send(partialPayload);
 
@@ -44,7 +52,7 @@ describe("POST /api/auth/login", () => {
       email: "tester@turva.back.fi",
     };
 
-    const res: Response = await request(app)
+    const res: Response = await request(app.getHttpServer())
       .post("/api/auth/login")
       .send(partialPayload);
 
@@ -58,7 +66,7 @@ describe("POST /api/auth/login", () => {
       username: "tester",
     };
 
-    const res: Response = await request(app)
+    const res: Response = await request(app.getHttpServer())
       .post("/api/auth/login")
       .send(payload);
 
@@ -72,7 +80,7 @@ describe("POST /api/auth/login", () => {
       username: "testerAccount1",
     };
 
-    const res: Response = await request(app)
+    const res: Response = await request(app.getHttpServer())
       .post("/api/auth/login")
       .send(payload);
 
@@ -89,7 +97,7 @@ describe("POST api/auth/verify", () => {
   it("Should fail without a pin", async () => {
     const emptyPayload = {};
 
-    const res: Response = await request(app)
+    const res: Response = await request(app.getHttpServer())
       .post("/api/auth/verify")
       .send(emptyPayload);
 
@@ -104,7 +112,7 @@ describe("POST api/auth/verify", () => {
       verificationCode: "123456",
     };
 
-    const res: Response = await request(app)
+    const res: Response = await request(app.getHttpServer())
       .post("/api/auth/verify")
       .send(payload);
 
@@ -117,10 +125,12 @@ describe("POST api/auth/verify", () => {
       .spyOn(console, "log")
       .mockImplementation(() => {});
 
-    const res: Response = await request(app).post("/api/auth/login").send({
-      email: "tester10@turva.back.fi",
-      username: "testerAccount1",
-    });
+    const res: Response = await request(app.getHttpServer())
+      .post("/api/auth/login")
+      .send({
+        email: "tester10@turva.back.fi",
+        username: "testerAccount1",
+      });
 
     expect(res.status).toBe(200);
     expect(consoleSpy).toHaveBeenCalled();
@@ -133,7 +143,7 @@ describe("POST api/auth/verify", () => {
       verificationCode: pinCode,
     };
 
-    const verifyRes: Response = await request(app)
+    const verifyRes: Response = await request(app.getHttpServer())
       .post("/api/auth/verify")
       .send(payload);
 
@@ -147,10 +157,12 @@ describe("POST api/auth/verify", () => {
       .spyOn(console, "log")
       .mockImplementation(() => {});
 
-    const res: Response = await request(app).post("/api/auth/login").send({
-      email: "tester10@turva.back.fi",
-      username: "testerAccount1",
-    });
+    const res: Response = await request(app.getHttpServer())
+      .post("/api/auth/login")
+      .send({
+        email: "tester10@turva.back.fi",
+        username: "testerAccount1",
+      });
 
     expect(res.status).toBe(200);
     const pinCode: unknown = consoleSpy.mock.calls[0][0];
@@ -161,7 +173,7 @@ describe("POST api/auth/verify", () => {
       verificationCode: pinCode,
     };
 
-    const verifyRes: Response = await request(app)
+    const verifyRes: Response = await request(app.getHttpServer())
       .post("/api/auth/verify")
       .send(payload);
 
