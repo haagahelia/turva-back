@@ -8,7 +8,7 @@ import {
 
 @Controller()
 @ApiTags("Status")
-export class RoutesController {
+export class StatusController {
   @Get("ping")
   @ApiOperation({
     summary: "Check API availability",
