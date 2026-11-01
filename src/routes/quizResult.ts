@@ -1,5 +1,16 @@
-import { Controller, Get, Post, Req, Res } from "@nestjs/common";
-import type { Request, Response } from "express";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpException,
+  InternalServerErrorException,
+  NotFoundException,
+  Param,
+  Post,
+  UnauthorizedException,
+} from "@nestjs/common";
 
 import { pool } from "../config/db";
 import { verifyToken } from "../utils/verification";
@@ -48,15 +59,16 @@ import { verifyToken } from "../utils/verification";
 export class QuizResultController {
   @Post("/")
   async saveQuizResult(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+    @Body() body: Record<string, any>,
+    @Headers("authorization") authorization?: string
+  ) {
     try {
-      const { quiz_id, correct_answers, time_spent_seconds } = req.body;
+      const { quiz_id, correct_answers, time_spent_seconds } = body;
 
-      const decoded = verifyToken(req, res);
-      if (!decoded || typeof decoded !== "object" || !("email" in decoded))
-        return;
+      const decoded = verifyToken(authorization);
+      if (!("email" in decoded) || typeof decoded.email !== "string") {
+        throw new UnauthorizedException({ error: "Token is invalid" });
+      }
       const email = (decoded as { email: string }).email;
 
       if (
@@ -64,8 +76,7 @@ export class QuizResultController {
         correct_answers === undefined ||
         time_spent_seconds === undefined
       ) {
-        res.status(400).json({ error: "Missing required fields" });
-        return;
+        throw new BadRequestException({ error: "Missing required fields" });
       }
 
       const userResult = await pool.query(
@@ -74,8 +85,7 @@ export class QuizResultController {
       );
 
       if (userResult.rows.length === 0) {
-        res.status(404).json({ error: "User not found" });
-        return;
+        throw new NotFoundException({ error: "User not found" });
       }
 
       const userId = userResult.rows[0].user_id;
@@ -97,8 +107,7 @@ export class QuizResultController {
       );
 
       if (quizResult.rows.length === 0) {
-        res.status(404).json({ error: "Quiz not found" });
-        return;
+        throw new NotFoundException({ error: "Quiz not found" });
       }
 
       const worldId = quizResult.rows[0].world_id;
@@ -129,14 +138,15 @@ export class QuizResultController {
         bonusAwarded = (bonusResult.rowCount ?? 0) > 0;
       }
 
-      res.status(201).json({
+      return {
         message: "Result saved successfully",
         worldCompleted,
         bonusAwarded,
-      });
+      };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error saving quiz result:", err);
-      res.status(500).json({ error: "Database error" });
+      throw new InternalServerErrorException({ error: "Database error" });
     }
   }
 
@@ -175,20 +185,14 @@ export class QuizResultController {
    *         description: Database error
    */
   @Get("/user/:user_id/stats")
-  async getUserQuizStats(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getUserQuizStats(@Param("user_id") user_id: string) {
     try {
-      const { user_id } = req.params;
-
       if (
         typeof user_id !== "string" ||
         user_id.trim() === "" ||
         Number.isNaN(Number(user_id))
       ) {
-        res.status(400).json({ error: "Invalid user ID" });
-        return;
+        throw new BadRequestException({ error: "Invalid user ID" });
       }
 
       const result = await pool.query(
@@ -201,15 +205,16 @@ export class QuizResultController {
       );
 
       const stats = result.rows[0];
-      res.status(200).json({
+      return {
         points: parseInt(stats.points, 10),
         totalTimeSeconds: parseInt(stats.total_time_seconds, 10),
-      });
+      };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error retrieving quiz statistics:", err);
-      res
-        .status(500)
-        .json({ error: "Database error while retrieving statistics" });
+      throw new InternalServerErrorException({
+        error: "Database error while retrieving statistics",
+      });
     }
   }
 
@@ -257,20 +262,14 @@ export class QuizResultController {
    *         description: Database error
    */
   @Get("/user/:user_id/history")
-  async getUserQuizHistory(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getUserQuizHistory(@Param("user_id") user_id: string) {
     try {
-      const { user_id } = req.params;
-
       if (
         typeof user_id !== "string" ||
         user_id.trim() === "" ||
         Number.isNaN(Number(user_id))
       ) {
-        res.status(400).json({ error: "Invalid user ID" });
-        return;
+        throw new BadRequestException({ error: "Invalid user ID" });
       }
 
       const result = await pool.query(
@@ -288,10 +287,13 @@ export class QuizResultController {
         [user_id]
       );
 
-      res.status(200).json(result.rows);
+      return result.rows;
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error fetching quiz history:", err);
-      res.status(500).json({ error: "Database error while fetching history" });
+      throw new InternalServerErrorException({
+        error: "Database error while fetching history",
+      });
     }
   }
 }

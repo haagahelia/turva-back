@@ -1,5 +1,12 @@
-import { Controller, Post, Req, Res } from "@nestjs/common";
-import type { Request, Response } from "express";
+import {
+  Body,
+  Controller,
+  HttpCode,
+  BadRequestException,
+  ConflictException,
+  Post,
+  UnauthorizedException,
+} from "@nestjs/common";
 
 import { generatePin } from "@/utils/pinGenerator";
 import bcrypt from "bcryptjs";
@@ -48,19 +55,16 @@ export class AuthController {
    *         description: Email or username already in use
    */
   @Post("/register")
-  async registerUser(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<Response | void> {
-    const username = req.body.username;
-    const userEmail = req.body.email;
-    const organizationId = req.body.organizationId;
+  async registerUser(@Body() body: Record<string, any>) {
+    const username = body.username;
+    const userEmail = body.email;
+    const organizationId = body.organizationId;
     if (!userEmail || !username || !organizationId) {
-      return res.status(400).json({ error: "Required fields missing" });
+      throw new BadRequestException({ error: "Required fields missing" });
     }
     const isValidEmail = validateEmail(userEmail);
     if (!isValidEmail) {
-      return res.status(400).json({ error: "Wrong email address" });
+      throw new BadRequestException({ error: "Wrong email address" });
     }
     const duplicateQuery = `SELECT profile_name FROM TurvaUser WHERE profile_name = $1`;
     const results = await pool.query(duplicateQuery, [username]);
@@ -71,9 +75,9 @@ export class AuthController {
       if (existing_profile_name) {
         const isDuplicate = await verifyUser(userEmail, existing_profile_name);
         if (isDuplicate) {
-          return res
-            .status(409)
-            .json({ error: "Email or username already in use" });
+          throw new ConflictException({
+            error: "Email or username already in use",
+          });
         }
       }
     }
@@ -81,7 +85,7 @@ export class AuthController {
     const registerQuery = `INSERT INTO TurvaUser (organization_id, profile_name, email_address) VALUES ($1, $2, $3)`;
     const values = [organizationId, username, userEmail];
     await pool.query(registerQuery, values);
-    return res.status(201).json({ message: "Account created!" });
+    return { message: "Account created!" };
   }
 
   /**
@@ -108,23 +112,21 @@ export class AuthController {
    *       '400':
    *         description: No email received or not valid
    */
+  @HttpCode(200)
   @Post("/login")
-  async requestLoginCode(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<Response | void> {
-    const userEmail = req.body.email;
-    const username = req.body.username;
+  async requestLoginCode(@Body() body: Record<string, any>) {
+    const userEmail = body.email;
+    const username = body.username;
     console.log("email: " + userEmail);
     if (!username) {
-      return res.status(400).json({ error: "No username received" });
+      throw new BadRequestException({ error: "No username received" });
     }
     if (!userEmail) {
-      return res.status(400).json({ error: "No email address received" });
+      throw new BadRequestException({ error: "No email address received" });
     }
     const isValidEmail = validateEmail(userEmail);
     if (!isValidEmail) {
-      return res.status(400).json({ error: "Email address is not valid" });
+      throw new BadRequestException({ error: "Email address is not valid" });
     }
     const verifyStatus = await verifyUser(userEmail, username);
     if (verifyStatus) {
@@ -137,11 +139,9 @@ export class AuthController {
       await pool.query(otpQuery, values);
       console.log(oneTimePin);
       await sendEmail(userEmail, oneTimePin);
-      return res
-        .status(200)
-        .json({ message: "Login email sent to " + userEmail });
+      return { message: "Login email sent to " + userEmail };
     } else {
-      return res.status(401).json({ error: "Invalid credentials" });
+      throw new UnauthorizedException({ error: "Invalid credentials" });
     }
   }
 
@@ -174,27 +174,27 @@ export class AuthController {
    *       '401':
    *         description: Code is invalid
    */
+  @HttpCode(200)
   @Post("/verify")
-  async verifyLoginCode(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<Response | void> {
-    const email = req.body.email;
-    const username = req.body.username;
-    const verificationCode = req.body.verificationCode;
+  async verifyLoginCode(@Body() body: Record<string, any>) {
+    const email = body.email;
+    const username = body.username;
+    const verificationCode = body.verificationCode;
     if (!verificationCode) {
-      return res.status(400).json({ error: "No verification code received." });
+      throw new BadRequestException({
+        error: "No verification code received.",
+      });
     }
 
     const isVerified = await verifyPin(email, verificationCode);
 
     if (isVerified) {
       const token = generateToken(email, username);
-      return res.status(200).json({
+      return {
         message: "Login successful!",
         token: token,
-      });
+      };
     }
-    return res.status(401).json({ error: "Code is invalid." });
+    throw new UnauthorizedException({ error: "Code is invalid." });
   }
 }

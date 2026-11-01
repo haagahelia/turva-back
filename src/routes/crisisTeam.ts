@@ -1,5 +1,16 @@
-import { Controller, Get, Post, Put, Delete, Req, Res } from "@nestjs/common";
-import type { Request, Response } from "express";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpException,
+  InternalServerErrorException,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+} from "@nestjs/common";
 
 import { pool } from "../config/db";
 
@@ -20,18 +31,18 @@ import { pool } from "../config/db";
 @Controller("crisis-team")
 export class CrisisTeamController {
   @Get("/")
-  async getAllCrisisTeamContacts(
-    @Req() _req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getAllCrisisTeamContacts() {
     try {
       const result = await pool.query(
         "SELECT * FROM CrisisTeam WHERE deleted_at IS NULL ORDER BY order_number;"
       );
-      res.json(result.rows);
+      return result.rows;
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
-      res.status(500).json({ error: "Database query failed" });
+      throw new InternalServerErrorException({
+        error: "Database query failed",
+      });
     }
   }
 
@@ -61,30 +72,28 @@ export class CrisisTeamController {
    *         description: Database query failed
    */
   @Get("/:id")
-  async getCrisisTeamContactById(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getCrisisTeamContactById(@Param("id") id: string) {
     try {
-      const id = Number(req.params.id);
+      const numericId = Number(id);
 
-      if (!Number.isInteger(id) || id <= 0) {
-        res.status(400).json({ error: "Invalid ID format" });
-        return;
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        throw new BadRequestException({ error: "Invalid ID format" });
       }
 
       const result = await pool.query(
         "SELECT * FROM CrisisTeam WHERE contact_id = $1 AND deleted_at IS NULL",
-        [id]
+        [numericId]
       );
       if (result.rowCount === 0) {
-        res.status(404).json({ error: "ID not found" });
-        return;
+        throw new NotFoundException({ error: "ID not found" });
       }
-      res.json(result.rows[0]);
+      return result.rows[0];
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
-      res.status(500).json({ error: "Database query failed" });
+      throw new InternalServerErrorException({
+        error: "Database query failed",
+      });
     }
   }
 
@@ -114,30 +123,26 @@ export class CrisisTeamController {
    *         description: Delete failed
    */
   @Delete("/:id")
-  async deleteCrisisTeamContact(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async deleteCrisisTeamContact(@Param("id") id: string) {
     try {
-      const id = Number(req.params.id);
+      const numericId = Number(id);
 
-      if (!Number.isInteger(id) || id <= 0) {
-        res.status(400).json({ error: "Invalid ID format" });
-        return;
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        throw new BadRequestException({ error: "Invalid ID format" });
       }
 
       const result = await pool.query(
         "UPDATE CrisisTeam SET deleted_at = CURRENT_TIMESTAMP WHERE contact_id = $1 AND deleted_at IS NULL RETURNING *",
-        [id]
+        [numericId]
       );
       if (result.rowCount === 0) {
-        res.status(404).json({ error: "ID not found" });
-        return;
+        throw new NotFoundException({ error: "ID not found" });
       }
-      res.json({ message: "Deleted successfully", deleted: result.rows[0] });
+      return { message: "Deleted successfully", deleted: result.rows[0] };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Delete failed", err);
-      res.status(500).json({ error: "Delete failed" });
+      throw new InternalServerErrorException({ error: "Delete failed" });
     }
   }
 
@@ -191,13 +196,10 @@ export class CrisisTeamController {
    *         description: Insert failed
    */
   @Post("/")
-  async createCrisisTeamContact(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async createCrisisTeamContact(@Body() body: Record<string, any>) {
     try {
       const { organization_id, name_fi, name_en, role_fi, role_en, phone } =
-        req.body;
+        body;
       if (
         !organization_id ||
         !name_fi ||
@@ -206,11 +208,10 @@ export class CrisisTeamController {
         !role_en ||
         !phone
       ) {
-        res.status(400).json({
+        throw new BadRequestException({
           error:
             "organization_id, name_fi, name_en, role_fi, role_en, and phone are required",
         });
-        return;
       }
       const result = await pool.query(
         `INSERT INTO CrisisTeam (organization_id, name_fi, name_en, role_fi, role_en, phone, order_number) 
@@ -218,10 +219,11 @@ export class CrisisTeamController {
              RETURNING *`,
         [organization_id, name_fi, name_en, role_fi, role_en, phone]
       );
-      res.status(201).json(result.rows[0]);
+      return result.rows[0];
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Insert failed", err);
-      res.status(500).json({ error: "Insert failed" });
+      throw new InternalServerErrorException({ error: "Insert failed" });
     }
   }
 
@@ -275,36 +277,34 @@ export class CrisisTeamController {
    */
   @Put("/:id")
   async updateCrisisTeamContact(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+    @Param("id") id: string,
+    @Body() body: Record<string, any>
+  ) {
     try {
-      const id = Number(req.params.id);
+      const numericId = Number(id);
 
-      if (!Number.isInteger(id) || id <= 0) {
-        res.status(400).json({ error: "Invalid ID format" });
-        return;
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const { name_fi, name_en, role_fi, role_en, phone } = req.body;
+      const { name_fi, name_en, role_fi, role_en, phone } = body;
       if (!name_fi || !name_en || !role_fi || !role_en || !phone) {
-        res.status(400).json({
+        throw new BadRequestException({
           error: "name_fi, name_en, role_fi, role_en, and phone are required",
         });
-        return;
       }
       const result = await pool.query(
         "UPDATE CrisisTeam SET name_fi = $1, name_en = $2, role_fi = $3, role_en = $4, phone = $5 WHERE contact_id = $6 AND deleted_at IS NULL RETURNING *",
-        [name_fi, name_en, role_fi, role_en, phone, id]
+        [name_fi, name_en, role_fi, role_en, phone, numericId]
       );
       if (result.rowCount === 0) {
-        res.status(404).json({ error: "ID not found" });
-        return;
+        throw new NotFoundException({ error: "ID not found" });
       }
-      res.json({ message: "Updated successfully", updated: result.rows[0] });
+      return { message: "Updated successfully", updated: result.rows[0] };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Update failed:", err);
-      res.status(500).json({ error: "Update failed" });
+      throw new InternalServerErrorException({ error: "Update failed" });
     }
   }
 }

@@ -1,5 +1,17 @@
-import { Controller, Get, Post, Req, Res } from "@nestjs/common";
-import type { Request, Response } from "express";
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Headers,
+  HttpException,
+  InternalServerErrorException,
+  NotFoundException,
+  Param,
+  Post,
+  Res,
+  UnauthorizedException,
+} from "@nestjs/common";
+import type { Response } from "express";
 
 import { pool } from "../config/db";
 import { verifyToken } from "../utils/verification";
@@ -174,22 +186,22 @@ const notFoundHtml = () => `
 export class PhysicalRewardController {
   @Post("/claim")
   async claimPhysicalReward(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+    @Headers("authorization") authorization: string,
+    @Res({ passthrough: true }) res: Response
+  ) {
     try {
-      const decoded = verifyToken(req, res);
-      if (!decoded || typeof decoded !== "object" || !("email" in decoded))
-        return;
-      const email = (decoded as { email: string }).email;
+      const decoded = verifyToken(authorization);
+      if (typeof decoded.email !== "string") {
+        throw new UnauthorizedException({ error: "Token is invalid" });
+      }
+      const email = decoded.email;
 
       const userResult = await pool.query(
         "SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL",
         [email]
       );
       if (userResult.rows.length === 0) {
-        res.status(404).json({ error: "User not found" });
-        return;
+        throw new NotFoundException({ error: "User not found" });
       }
       const userId = userResult.rows[0].user_id;
 
@@ -205,12 +217,11 @@ export class PhysicalRewardController {
       const completedWorlds = parseInt(completedResult.rows[0].completed, 10);
 
       if (completedWorlds < totalWorlds || totalWorlds === 0) {
-        res.status(403).json({
+        throw new ForbiddenException({
           error: "Not all worlds completed",
           completedWorlds,
           totalWorlds,
         });
-        return;
       }
 
       const existingReward = await pool.query(
@@ -221,11 +232,11 @@ export class PhysicalRewardController {
       if (existingReward.rows.length > 0) {
         const { reward_code, claimed_at } = existingReward.rows[0];
         if (claimed_at) {
-          res.status(200).json({ alreadyClaimed: true, reward_code: null });
-        } else {
-          res.status(200).json({ alreadyClaimed: false, reward_code });
+          res.status(200);
+          return { alreadyClaimed: true, reward_code: null };
         }
-        return;
+        res.status(200);
+        return { alreadyClaimed: false, reward_code };
       }
 
       const rewardCode = crypto.randomUUID();
@@ -234,10 +245,11 @@ export class PhysicalRewardController {
         [userId, rewardCode]
       );
 
-      res.status(201).json({ alreadyClaimed: false, reward_code: rewardCode });
+      return { alreadyClaimed: false, reward_code: rewardCode };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error claiming reward:", err);
-      res.status(500).json({ error: "Database error" });
+      throw new InternalServerErrorException({ error: "Database error" });
     }
   }
 
@@ -261,12 +273,10 @@ export class PhysicalRewardController {
    */
   @Get("/verify/:code")
   async verifyPhysicalReward(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+    @Param("code") code: string,
+    @Res({ passthrough: true }) res: Response
+  ) {
     try {
-      const { code } = req.params;
-
       const result = await pool.query(
         `SELECT pr.reward_id, pr.claimed_at, tu.profile_name
        FROM Physical_Reward pr
@@ -277,16 +287,15 @@ export class PhysicalRewardController {
 
       if (result.rows.length === 0) {
         res.setHeader("Content-Type", "text/html");
-        res.status(404).send(notFoundHtml());
-        return;
+        res.status(404);
+        return notFoundHtml();
       }
 
       const { reward_id, claimed_at, profile_name } = result.rows[0];
 
       if (claimed_at) {
         res.setHeader("Content-Type", "text/html");
-        res.status(200).send(alreadyClaimedHtml(profile_name, claimed_at));
-        return;
+        return alreadyClaimedHtml(profile_name, claimed_at);
       }
 
       await pool.query(
@@ -295,11 +304,12 @@ export class PhysicalRewardController {
       );
 
       res.setHeader("Content-Type", "text/html");
-      res.status(200).send(successHtml(profile_name));
+      return successHtml(profile_name);
     } catch (err) {
       console.error("Error verifying reward:", err);
       res.setHeader("Content-Type", "text/html");
-      res.status(500).send(notFoundHtml());
+      res.status(500);
+      return notFoundHtml();
     }
   }
 }

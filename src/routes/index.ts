@@ -1,5 +1,4 @@
-import { Controller, Get, Res } from "@nestjs/common";
-import type { Response } from "express";
+import { Controller, Get, Header } from "@nestjs/common";
 
 @Controller()
 export class RoutesController {
@@ -16,8 +15,8 @@ export class RoutesController {
    *         description: API is available
    */
   @Get("ping")
-  ping(@Res() res: Response): void {
-    res.send("pong");
+  ping(): string {
+    return "pong";
   }
 
   /**
@@ -33,7 +32,8 @@ export class RoutesController {
    *         description: Greeting returned successfully
    */
   @Get()
-  root(@Res() res: Response): void {
-    res.json("Hello world!");
+  @Header("Content-Type", "application/json")
+  root(): string {
+    return JSON.stringify("Hello world!");
   }
 }

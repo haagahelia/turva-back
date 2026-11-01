@@ -1,5 +1,11 @@
-import { Controller, Get, Req, Res } from "@nestjs/common";
-import type { Request, Response } from "express";
+import {
+  Controller,
+  Get,
+  Headers,
+  HttpException,
+  InternalServerErrorException,
+  NotFoundException,
+} from "@nestjs/common";
 
 import { pool } from "@/config/db";
 import { verifyToken } from "@/utils/verification";
@@ -27,15 +33,12 @@ import { verifyToken } from "@/utils/verification";
 @Controller("user")
 export class UserController {
   @Get("/profile")
-  async getProfile(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<Response | void> {
+  async getProfile(@Headers("authorization") authorization?: string) {
     try {
-      const decoded = verifyToken(req, res);
+      const decoded = verifyToken(authorization);
 
       if (!decoded || typeof decoded !== "object" || !("email" in decoded)) {
-        return;
+        throw new HttpException({ error: "Token is invalid" }, 401);
       }
 
       const email = (decoded as { email: string }).email;
@@ -49,20 +52,23 @@ export class UserController {
       const result = await pool.query(query, [email]);
 
       if (result.rowCount === 0) {
-        return res.status(404).json({ error: "User not found" });
+        throw new NotFoundException({ error: "User not found" });
       }
 
       const user = result.rows[0];
 
-      return res.status(200).json({
+      return {
         userId: user.user_id,
         profileName: user.profile_name,
         profilePictureUrl: user.profile_picture_url,
         email: user.email_address,
-      });
+      };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error fetching profile:", err);
-      return res.status(500).json({ error: "Database query failed" });
+      throw new InternalServerErrorException({
+        error: "Database query failed",
+      });
     }
   }
 }

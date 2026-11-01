@@ -1,5 +1,11 @@
-import { Controller, Get, Req, Res } from "@nestjs/common";
-import type { Request, Response } from "express";
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  HttpException,
+  InternalServerErrorException,
+  Param,
+} from "@nestjs/common";
 
 import { pool } from "../config/db";
 
@@ -40,20 +46,14 @@ import { pool } from "../config/db";
 @Controller("world-bonus")
 export class WorldBonusController {
   @Get("/user/:user_id")
-  async getUserWorldBonus(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getUserWorldBonus(@Param("user_id") user_id: string) {
     try {
-      const { user_id } = req.params;
-
       if (
         typeof user_id !== "string" ||
         user_id.trim() === "" ||
         Number.isNaN(Number(user_id))
       ) {
-        res.status(400).json({ error: "Invalid user ID" });
-        return;
+        throw new BadRequestException({ error: "Invalid user ID" });
       }
 
       const result = await pool.query(
@@ -66,10 +66,11 @@ export class WorldBonusController {
       const completedWorlds = parseInt(result.rows[0].completed_worlds, 10);
       const bonusPoints = completedWorlds * 10; // 10 points per completed world
 
-      res.status(200).json({ completedWorlds, bonusPoints });
+      return { completedWorlds, bonusPoints };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error fetching world bonus:", err);
-      res.status(500).json({ error: "Database error" });
+      throw new InternalServerErrorException({ error: "Database error" });
     }
   }
 }

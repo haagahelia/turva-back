@@ -1,5 +1,4 @@
-import { Controller, Get, Req, Res } from "@nestjs/common";
-import type { Request, Response } from "express";
+import { Controller, Get, InternalServerErrorException } from "@nestjs/common";
 
 import { pool } from "../config/db";
 
@@ -20,16 +19,15 @@ import { pool } from "../config/db";
 @Controller("world")
 export class WorldController {
   @Get("/")
-  async getAllWorlds(
-    @Req() _req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getAllWorlds() {
     try {
       const result = await pool.query("SELECT * FROM World;");
-      res.json(result.rows);
+      return result.rows;
     } catch (err) {
       console.error("Error in query:", err);
-      res.status(500).json({ error: "Database query failed" });
+      throw new InternalServerErrorException({
+        error: "Database query failed",
+      });
     }
   }
 }

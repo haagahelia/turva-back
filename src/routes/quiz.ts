@@ -1,5 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Req, Res } from "@nestjs/common";
-import type { Request, Response } from "express";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpException,
+  InternalServerErrorException,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+} from "@nestjs/common";
 
 import { pool } from "../config/db";
 
@@ -20,16 +32,16 @@ import { pool } from "../config/db";
 @Controller("quiz")
 export class QuizController {
   @Get("/")
-  async getAllQuizzes(
-    @Req() _req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getAllQuizzes() {
     try {
       const result = await pool.query("SELECT * FROM Quiz;");
-      res.json(result.rows);
+      return result.rows;
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
-      res.status(500).json({ error: "Database query failed" });
+      throw new InternalServerErrorException({
+        error: "Database query failed",
+      });
     }
   }
 
@@ -52,30 +64,29 @@ export class QuizController {
    *         description: Database query failed
    */
   @Get("/:id")
-  async getQuizById(@Req() req: Request, @Res() res: Response): Promise<void> {
+  async getQuizById(@Param("id") id: string) {
     try {
-      const { id } = req.params;
-
       if (
         typeof id !== "string" ||
         id.trim() === "" ||
         Number.isNaN(Number(id))
       ) {
-        res.status(400).json({ error: "Invalid ID format" });
-        return;
+        throw new BadRequestException({ error: "Invalid ID format" });
       }
 
       const result = await pool.query("SELECT * FROM quiz WHERE quiz_id = $1", [
         id,
       ]);
       if (result.rowCount === 0) {
-        res.status(404).json({ error: "ID not found" });
-        return;
+        throw new NotFoundException({ error: "ID not found" });
       }
-      res.json(result.rows);
+      return result.rows;
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
-      res.status(500).json({ error: "Database query failed" });
+      throw new InternalServerErrorException({
+        error: "Database query failed",
+      });
     }
   }
 
@@ -105,20 +116,14 @@ export class QuizController {
    *         description: Database query failed
    */
   @Get("/world/:world_id/quizzes")
-  async getQuizzesByWorldId(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getQuizzesByWorldId(@Param("world_id") world_id: string) {
     try {
-      const { world_id } = req.params;
-
       if (
         typeof world_id !== "string" ||
         world_id.trim() === "" ||
         Number.isNaN(Number(world_id))
       ) {
-        res.status(400).json({ error: "Invalid ID format" });
-        return;
+        throw new BadRequestException({ error: "Invalid ID format" });
       }
 
       const result = await pool.query(
@@ -126,13 +131,15 @@ export class QuizController {
         [world_id]
       );
       if (result.rowCount === 0) {
-        res.status(404).json({ error: "ID not found" });
-        return;
+        throw new NotFoundException({ error: "ID not found" });
       }
-      res.json(result.rows);
+      return result.rows;
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
-      res.status(500).json({ error: "Database query failed" });
+      throw new InternalServerErrorException({
+        error: "Database query failed",
+      });
     }
   }
 
@@ -169,9 +176,9 @@ export class QuizController {
    *         description: Insert failed
    */
   @Post("/")
-  async createQuiz(@Req() req: Request, @Res() res: Response): Promise<void> {
+  async createQuiz(@Body() body: Record<string, any>) {
     try {
-      const { world_id, quiz_name, quiz_content, order_number } = req.body;
+      const { world_id, quiz_name, quiz_content, order_number } = body;
       if (
         !world_id ||
         !quiz_name ||
@@ -179,19 +186,19 @@ export class QuizController {
         world_id < 0 ||
         order_number < 0
       ) {
-        res
-          .status(400)
-          .json({ error: "World id, quiz name or order number missing" });
-        return;
+        throw new BadRequestException({
+          error: "World id, quiz name or order number missing",
+        });
       }
       const result = await pool.query(
         "INSERT INTO quiz (world_id, quiz_name, quiz_content, order_number) VALUES ($1, $2, $3, $4) RETURNING *",
         [world_id, quiz_name, JSON.stringify(quiz_content), order_number]
       );
-      res.status(201).json(result.rows[0]);
+      return result.rows[0];
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Insert failed", err);
-      res.status(500).json({ error: "Insert failed" });
+      throw new InternalServerErrorException({ error: "Insert failed" });
     }
   }
 
@@ -226,39 +233,36 @@ export class QuizController {
    *       '500':
    *         description: Insert failed
    */
+  @HttpCode(201)
   @Put("/:id")
-  async updateQuiz(@Req() req: Request, @Res() res: Response): Promise<void> {
+  async updateQuiz(@Param("id") id: string, @Body() body: Record<string, any>) {
     try {
-      const { id } = req.params;
-
       if (
         typeof id !== "string" ||
         id.trim() === "" ||
         Number.isNaN(Number(id))
       ) {
-        res.status(400).json({ error: "Invalid ID format" });
-        return;
+        throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      if (req.body === undefined) {
-        res.status(400).json({ error: "Request body must be valid JSON" });
-        return;
+      if (body === undefined) {
+        throw new BadRequestException({
+          error: "Request body must be valid JSON",
+        });
       }
 
       const result = await pool.query(
         "UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *",
-        [JSON.stringify(req.body), id]
+        [JSON.stringify(body), id]
       );
       if (result.rowCount === 0) {
-        res.status(400).json({ error: "ID not found" });
-        return;
+        throw new BadRequestException({ error: "ID not found" });
       }
-      res
-        .status(201)
-        .json({ message: "Updated successfully", updated: result.rows[0] });
+      return { message: "Updated successfully", updated: result.rows[0] };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Update failed:", err);
-      res.status(500).json({ error: "Update failed" });
+      throw new InternalServerErrorException({ error: "Update failed" });
     }
   }
 
@@ -286,21 +290,20 @@ export class QuizController {
    *         description: Delete failed
    */
   @Delete("/:id")
-  async deleteQuiz(@Req() req: Request, @Res() res: Response): Promise<void> {
+  async deleteQuiz(@Param("id") id: string) {
     try {
-      const { id } = req.params;
       const result = await pool.query(
         "DELETE FROM quiz WHERE quiz_id = $1 RETURNING *",
         [id]
       );
       if (result.rowCount === 0) {
-        res.status(404).json({ error: "ID not found" });
-        return;
+        throw new NotFoundException({ error: "ID not found" });
       }
-      res.json({ message: "Deleted successfully", deleted: result.rows[0] });
+      return { message: "Deleted successfully", deleted: result.rows[0] };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Delete failed", err);
-      res.status(500).json({ error: "Delete failed" });
+      throw new InternalServerErrorException({ error: "Delete failed" });
     }
   }
 }

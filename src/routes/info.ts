@@ -1,5 +1,16 @@
-import { Controller, Delete, Get, Post, Put, Req, Res } from "@nestjs/common";
-import type { Request, Response } from "express";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpException,
+  InternalServerErrorException,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+} from "@nestjs/common";
 
 import { pool } from "../config/db";
 
@@ -20,16 +31,16 @@ import { pool } from "../config/db";
 @Controller("info")
 export class InfoController {
   @Get("/")
-  async getAllInfoPages(
-    @Req() _req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getAllInfoPages() {
     try {
       const result = await pool.query("SELECT * FROM info ORDER BY id;");
-      res.json(result.rows);
+      return result.rows;
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
-      res.status(500).json({ error: "Database query failed" });
+      throw new InternalServerErrorException({
+        error: "Database query failed",
+      });
     }
   }
 
@@ -59,27 +70,27 @@ export class InfoController {
    *         description: Database query failed
    */
   @Get("/:id")
-  async getInfoPageById(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async getInfoPageById(@Param("id") id: string) {
     try {
-      const id = Number(req.params.id);
+      const numericId = Number(id);
 
-      if (!Number.isInteger(id) || id <= 0) {
-        res.status(400).json({ error: "Invalid ID format" });
-        return;
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const result = await pool.query("SELECT * FROM info WHERE id = $1", [id]);
+      const result = await pool.query("SELECT * FROM info WHERE id = $1", [
+        numericId,
+      ]);
       if (result.rowCount === 0) {
-        res.status(404).json({ error: "ID not found" });
-        return;
+        throw new NotFoundException({ error: "ID not found" });
       }
-      res.json(result.rows[0]);
+      return result.rows[0];
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
-      res.status(500).json({ error: "Database query failed" });
+      throw new InternalServerErrorException({
+        error: "Database query failed",
+      });
     }
   }
 
@@ -109,30 +120,26 @@ export class InfoController {
    *         description: Delete failed
    */
   @Delete("/:id")
-  async deleteInfoPage(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async deleteInfoPage(@Param("id") id: string) {
     try {
-      const id = Number(req.params.id);
+      const numericId = Number(id);
 
-      if (!Number.isInteger(id) || id <= 0) {
-        res.status(400).json({ error: "Invalid ID format" });
-        return;
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        throw new BadRequestException({ error: "Invalid ID format" });
       }
 
       const result = await pool.query(
         "DELETE FROM info WHERE id = $1 RETURNING *",
-        [id]
+        [numericId]
       );
       if (result.rowCount === 0) {
-        res.status(404).json({ error: "ID not found" });
-        return;
+        throw new NotFoundException({ error: "ID not found" });
       }
-      res.json({ message: "Deleted successfully", deleted: result.rows[0] });
+      return { message: "Deleted successfully", deleted: result.rows[0] };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Delete failed", err);
-      res.status(500).json({ error: "Delete failed" });
+      throw new InternalServerErrorException({ error: "Delete failed" });
     }
   }
 
@@ -166,24 +173,23 @@ export class InfoController {
    *         description: Insert failed
    */
   @Post("/")
-  async createInfoPage(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+  async createInfoPage(@Body() body: Record<string, any>) {
     try {
-      const { title, content } = req.body;
+      const { title, content } = body;
       if (!title || !content) {
-        res.status(400).json({ error: "Title or content missing" });
-        return;
+        throw new BadRequestException({
+          error: "Title or content missing",
+        });
       }
       const result = await pool.query(
         "INSERT INTO info (title, content) VALUES ($1, $2) RETURNING *",
         [title, content]
       );
-      res.status(201).json(result.rows[0]);
+      return result.rows[0];
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Insert failed", err);
-      res.status(500).json({ error: "Insert failed" });
+      throw new InternalServerErrorException({ error: "Insert failed" });
     }
   }
 
@@ -228,34 +234,34 @@ export class InfoController {
    */
   @Put("/:id")
   async updateInfoPage(
-    @Req() req: Request,
-    @Res() res: Response
-  ): Promise<void> {
+    @Body() body: Record<string, any>,
+    @Param("id") id: string
+  ) {
     try {
-      const id = Number(req.params.id);
+      const numericId = Number(id);
 
-      if (!Number.isInteger(id) || id <= 0) {
-        res.status(400).json({ error: "Invalid ID format" });
-        return;
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const { title, content } = req.body;
+      const { title, content } = body;
       if (!title || !content) {
-        res.status(400).json({ error: "Title or content missing" });
-        return;
+        throw new BadRequestException({
+          error: "Title or content missing",
+        });
       }
       const result = await pool.query(
         "UPDATE info SET title = $1, content = $2, created_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *",
-        [title, content, id]
+        [title, content, numericId]
       );
       if (result.rowCount === 0) {
-        res.status(404).json({ error: "ID not found" });
-        return;
+        throw new NotFoundException({ error: "ID not found" });
       }
-      res.json({ message: "Updated successfully", updated: result.rows[0] });
+      return { message: "Updated successfully", updated: result.rows[0] };
     } catch (err) {
+      if (err instanceof HttpException) throw err;
       console.error("Update failed:", err);
-      res.status(500).json({ error: "Update failed" });
+      throw new InternalServerErrorException({ error: "Update failed" });
     }
   }
 }
