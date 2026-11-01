@@ -12,6 +12,14 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import type { Response } from "express";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiProduces,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 
 import { pool } from "../config/db";
 import { verifyToken } from "../utils/verification";
@@ -164,27 +172,36 @@ const notFoundHtml = () => `
 </html>
 `;
 
-/**
- * @openapi
- * /api/physical-reward/claim:
- *   post:
- *     summary: Claim physical reward (haalarimerkki)
- *     description: Generates a unique one-time QR code if all worlds are completed.
- *     tags:
- *       - Physical Reward
- *     responses:
- *       '200':
- *         description: Reward code returned successfully
- *       '403':
- *         description: Not all worlds completed
- *       '401':
- *         description: Unauthorized
- *       '500':
- *         description: Database error
- */
 @Controller("physical-reward")
+@ApiTags("Physical Reward")
 export class PhysicalRewardController {
   @Post("/claim")
+  @ApiBearerAuth("bearerAuth")
+  @ApiOperation({
+    summary: "Claim physical reward (haalarimerkki)",
+    description:
+      "Generates a unique one-time QR code if all worlds are completed",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Reward code returned successfully",
+  })
+  @ApiResponse({ status: 201, description: "Reward code created successfully" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({
+    status: 403,
+    description: "Not all worlds completed",
+    schema: {
+      type: "object",
+      properties: {
+        error: { type: "string" },
+        completedWorlds: { type: "integer" },
+        totalWorlds: { type: "integer" },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: "User not found" })
+  @ApiResponse({ status: 500, description: "Database error" })
   async claimPhysicalReward(
     @Headers("authorization") authorization: string,
     @Res({ passthrough: true }) res: Response
@@ -253,25 +270,29 @@ export class PhysicalRewardController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/physical-reward/verify/{code}:
-   *   get:
-   *     summary: Verify and claim physical reward
-   *     description: Verifies the QR code and marks it as claimed. Returns HTML page with result.
-   *     tags:
-   *       - Physical Reward
-   *     parameters:
-   *       - in: path
-   *         name: code
-   *         schema:
-   *           type: string
-   *         required: true
-   *     responses:
-   *       '200':
-   *         description: HTML page with result
-   */
   @Get("/verify/:code")
+  @ApiOperation({
+    summary: "Verify and claim physical reward",
+    description:
+      "Verifies the QR code, marks it as claimed, and returns an HTML page",
+  })
+  @ApiParam({ name: "code", type: String, required: true })
+  @ApiProduces("text/html")
+  @ApiResponse({
+    status: 200,
+    description: "HTML page with result",
+    content: { "text/html": { schema: { type: "string" } } },
+  })
+  @ApiResponse({
+    status: 404,
+    description: "Reward code not found",
+    content: { "text/html": { schema: { type: "string" } } },
+  })
+  @ApiResponse({
+    status: 500,
+    description: "Error verifying reward",
+    content: { "text/html": { schema: { type: "string" } } },
+  })
   async verifyPhysicalReward(
     @Param("code") code: string,
     @Res({ passthrough: true }) res: Response

@@ -12,26 +12,26 @@ import {
   Post,
   Put,
 } from "@nestjs/common";
+import {
+  ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 
 import { pool } from "../config/db";
 
-/**
- * @openapi
- * /api/quiz:
- *   get:
- *     summary: Returns all quizzes
- *     description: Returns all quizzes in JSON format
- *     tags:
- *       - Quiz
- *     responses:
- *       '200':
- *         description: OK
- *       '500':
- *         description: Database query failed
- */
 @Controller("quiz")
+@ApiTags("Quiz")
 export class QuizController {
   @Get("/")
+  @ApiOperation({
+    summary: "Returns all quizzes",
+    description: "Returns all quizzes in JSON format",
+  })
+  @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({ status: 500, description: "Database query failed" })
   async getAllQuizzes() {
     try {
       const result = await pool.query("SELECT * FROM Quiz;");
@@ -45,25 +45,17 @@ export class QuizController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/quiz/{id}:
-   *   get:
-   *     summary: Get quiz by ID
-   *     description: Searches a specific quiz by its ID and returns it in JSON format
-   *     tags:
-   *       - Quiz
-   *     responses:
-   *       '200':
-   *         description: OK
-   *       '400':
-   *         description: Invalid ID format
-   *       '404':
-   *         description: ID not found
-   *       '500':
-   *         description: Database query failed
-   */
   @Get("/:id")
+  @ApiOperation({
+    summary: "Get quiz by ID",
+    description:
+      "Searches a specific quiz by its ID and returns it in JSON format",
+  })
+  @ApiParam({ name: "id", type: Number })
+  @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({ status: 400, description: "Invalid ID format" })
+  @ApiResponse({ status: 404, description: "ID not found" })
+  @ApiResponse({ status: 500, description: "Database query failed" })
   async getQuizById(@Param("id") id: string) {
     try {
       if (
@@ -90,32 +82,20 @@ export class QuizController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/quiz/world/{world_id}/quizzes:
-   *   get:
-   *     summary: Get quizzes by world ID
-   *     description: Selects all from quiz where the world ID matches the provided world ID
-   *     parameters:
-   *       - in: path
-   *         name: world_id
-   *         schema:
-   *           type: integer
-   *         required: true
-   *         description: Numeric ID of the world whose quizzes you want
-   *     tags:
-   *       - Quiz
-   *     responses:
-   *       '200':
-   *         description: OK
-   *       '400':
-   *         description: Invalid ID format
-   *       '404':
-   *         description: ID not found
-   *       '500':
-   *         description: Database query failed
-   */
   @Get("/world/:world_id/quizzes")
+  @ApiOperation({
+    summary: "Get quizzes by world ID",
+    description: "Returns quizzes whose world ID matches the supplied world ID",
+  })
+  @ApiParam({
+    name: "world_id",
+    type: Number,
+    description: "Numeric ID of the world whose quizzes you want",
+  })
+  @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({ status: 400, description: "Invalid ID format" })
+  @ApiResponse({ status: 404, description: "ID not found" })
+  @ApiResponse({ status: 500, description: "Database query failed" })
   async getQuizzesByWorldId(@Param("world_id") world_id: string) {
     try {
       if (
@@ -143,39 +123,30 @@ export class QuizController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/quiz:
-   *   post:
-   *     summary: Add new quiz to db
-   *     description: Insert into quiz
-   *     requestBody:
-   *       description: title and content
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             properties:
-   *               world_id:
-   *                 type: integer
-   *                 example: 1
-   *               quiz_name:
-   *                 type: string
-   *                 example: New Quiz
-   *               order_number:
-   *                 type: integer
-   *                 example: 1
-   *     tags:
-   *       - Quiz
-   *     responses:
-   *       '201':
-   *         description: Created
-   *       '400':
-   *         description: world_id, quiz_name or order_number missing
-   *       '500':
-   *         description: Insert failed
-   */
   @Post("/")
+  @ApiOperation({
+    summary: "Add new quiz to db",
+    description: "Insert into quiz",
+  })
+  @ApiBody({
+    description: "Quiz world, name, content, and order",
+    required: true,
+    schema: {
+      type: "object",
+      properties: {
+        world_id: { type: "integer", example: 1 },
+        quiz_name: { type: "string", example: "New Quiz" },
+        quiz_content: { type: "object" },
+        order_number: { type: "integer", example: 1 },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: "Created" })
+  @ApiResponse({
+    status: 400,
+    description: "world_id, quiz_name or order_number missing",
+  })
+  @ApiResponse({ status: 500, description: "Insert failed" })
   async createQuiz(@Body() body: Record<string, any>) {
     try {
       const { world_id, quiz_name, quiz_content, order_number } = body;
@@ -202,39 +173,22 @@ export class QuizController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/quiz/{id}:
-   *   put:
-   *     summary: Update Quiz content
-   *     description: Update quiz content for quiz where ID matches
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         schema:
-   *           type: integer
-   *         required: true
-   *         description: Numeric ID of the quiz to update
-   *     requestBody:
-   *       description: quiz content json
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: string
-   *             example: Paste the JSON in here!
-   *     tags:
-   *       - Quiz
-   *     responses:
-   *       '201':
-   *         description: Created
-   *       '400':
-   *         description: Invalid ID format
-   *       '500':
-   *         description: Insert failed
-   */
   @HttpCode(201)
   @Put("/:id")
+  @ApiOperation({
+    summary: "Update Quiz content",
+    description: "Update quiz content for quiz where ID matches",
+  })
+  @ApiParam({ name: "id", type: Number })
+  @ApiBody({
+    description: "quiz content JSON",
+    required: true,
+    schema: { type: "object", example: { question: "Example question" } },
+  })
+  @ApiResponse({ status: 201, description: "Updated successfully" })
+  @ApiResponse({ status: 400, description: "Invalid ID format" })
+  @ApiResponse({ status: 404, description: "ID not found" })
+  @ApiResponse({ status: 500, description: "Update failed" })
   async updateQuiz(@Param("id") id: string, @Body() body: Record<string, any>) {
     try {
       if (
@@ -266,30 +220,15 @@ export class QuizController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/quiz/{id}:
-   *   delete:
-   *     summary: Delete quiz by ID
-   *     description: Delete a quiz where the ID you give matches the ID of the quiz you want to delete
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         schema:
-   *           type: integer
-   *         required: true
-   *         description: Numeric ID of the quiz you want to get
-   *     tags:
-   *       - Quiz
-   *     responses:
-   *       '200':
-   *         description: OK
-   *       '404':
-   *         description: ID not found
-   *       '500':
-   *         description: Delete failed
-   */
   @Delete("/:id")
+  @ApiOperation({
+    summary: "Delete quiz by ID",
+    description: "Delete a quiz by its ID",
+  })
+  @ApiParam({ name: "id", type: Number })
+  @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({ status: 404, description: "ID not found" })
+  @ApiResponse({ status: 500, description: "Delete failed" })
   async deleteQuiz(@Param("id") id: string) {
     try {
       const result = await pool.query(

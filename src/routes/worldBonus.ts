@@ -6,46 +6,33 @@ import {
   InternalServerErrorException,
   Param,
 } from "@nestjs/common";
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { pool } from "../config/db";
 
-/**
- * @openapi
- * /api/world-bonus/user/{user_id}:
- *   get:
- *     summary: Get user world bonus points
- *     description: Returns the number of completed worlds and total bonus points for a user
- *     tags:
- *       - World Bonus
- *     parameters:
- *       - in: path
- *         name: user_id
- *         schema:
- *           type: integer
- *         required: true
- *         description: ID of the user
- *     responses:
- *       '200':
- *         description: World bonus data retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 completedWorlds:
- *                   type: integer
- *                   example: 1
- *                 bonusPoints:
- *                   type: integer
- *                   example: 10
- *       '400':
- *         description: Invalid user ID
- *       '500':
- *         description: Database error
- */
 @Controller("world-bonus")
+@ApiTags("World Bonus")
 export class WorldBonusController {
   @Get("/user/:user_id")
+  @ApiOperation({
+    summary: "Get user world bonus points",
+    description:
+      "Returns the number of completed worlds and total bonus points for a user",
+  })
+  @ApiParam({ name: "user_id", type: Number, description: "ID of the user" })
+  @ApiResponse({
+    status: 200,
+    description: "World bonus data retrieved successfully",
+    schema: {
+      type: "object",
+      properties: {
+        completedWorlds: { type: "integer", example: 1 },
+        bonusPoints: { type: "integer", example: 10 },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: "Invalid user ID" })
+  @ApiResponse({ status: 500, description: "Database error" })
   async getUserWorldBonus(@Param("user_id") user_id: string) {
     try {
       if (

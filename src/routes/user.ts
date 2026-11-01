@@ -6,33 +6,32 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 
 import { pool } from "@/config/db";
 import { verifyToken } from "@/utils/verification";
 
-/**
- * @openapi
- * /api/user/profile:
- *   get:
- *     summary: Get user profile info
- *     description: Returns profile name and picture URL
- *     tags:
- *       - User
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       '200':
- *         description: OK
- *       '401':
- *         description: Unauthorized, no token or invalid token
- *       '404':
- *         description: User not found
- *       '500':
- *         description: Database query failed
- */
 @Controller("user")
+@ApiTags("User")
 export class UserController {
   @Get("/profile")
+  @ApiBearerAuth("bearerAuth")
+  @ApiOperation({
+    summary: "Get user profile info",
+    description: "Returns profile name and picture URL",
+  })
+  @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({
+    status: 401,
+    description: "Unauthorized, no token or invalid token",
+  })
+  @ApiResponse({ status: 404, description: "User not found" })
+  @ApiResponse({ status: 500, description: "Database query failed" })
   async getProfile(@Headers("authorization") authorization?: string) {
     try {
       const decoded = verifyToken(authorization);

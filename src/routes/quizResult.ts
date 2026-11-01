@@ -11,53 +11,45 @@ import {
   Post,
   UnauthorizedException,
 } from "@nestjs/common";
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 
 import { pool } from "../config/db";
 import { verifyToken } from "../utils/verification";
 
-/**
- * @openapi
- * /api/quiz-result:
- *   post:
- *     summary: Save user's quiz result
- *     description: Saves the quiz result for a user. Gets userId from JWT token. Also checks if the world is completed and awards bonus if so.
- *     tags:
- *       - Quiz Result
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - quiz_id
- *               - correct_answers
- *               - time_spent_seconds
- *             properties:
- *               quiz_id:
- *                 type: integer
- *                 example: 1
- *               correct_answers:
- *                 type: integer
- *                 example: 5
- *               time_spent_seconds:
- *                 type: integer
- *                 example: 120
- *     responses:
- *       '201':
- *         description: Result saved successfully
- *       '400':
- *         description: Missing required fields
- *       '401':
- *         description: Unauthorized
- *       '404':
- *         description: User or quiz not found
- *       '500':
- *         description: Database error
- */
 @Controller("quiz-result")
+@ApiTags("Quiz Result")
 export class QuizResultController {
   @Post("/")
+  @ApiBearerAuth("bearerAuth")
+  @ApiOperation({
+    summary: "Save user's quiz result",
+    description:
+      "Saves the quiz result for the authenticated user and awards a world bonus when all quizzes are completed",
+  })
+  @ApiBody({
+    required: true,
+    schema: {
+      type: "object",
+      required: ["quiz_id", "correct_answers", "time_spent_seconds"],
+      properties: {
+        quiz_id: { type: "integer", example: 1 },
+        correct_answers: { type: "integer", example: 5 },
+        time_spent_seconds: { type: "integer", example: 120 },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: "Result saved successfully" })
+  @ApiResponse({ status: 400, description: "Missing required fields" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({ status: 404, description: "User or quiz not found" })
+  @ApiResponse({ status: 500, description: "Database error" })
   async saveQuizResult(
     @Body() body: Record<string, any>,
     @Headers("authorization") authorization?: string
@@ -150,41 +142,30 @@ export class QuizResultController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/quiz-result/user/{user_id}/stats:
-   *   get:
-   *     summary: Get user's quiz statistics
-   *     description: Returns sum of score and total time spent for a user
-   *     tags:
-   *       - Quiz Result
-   *     parameters:
-   *       - in: path
-   *         name: user_id
-   *         schema:
-   *           type: integer
-   *         required: true
-   *         description: ID of the user to get statistics for
-   *     responses:
-   *       '200':
-   *         description: User quiz statistics retrieved successfully
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: object
-   *               properties:
-   *                 points:
-   *                   type: integer
-   *                   example: 15
-   *                 totalTimeSeconds:
-   *                   type: integer
-   *                   example: 360
-   *       '400':
-   *         description: Invalid user ID
-   *       '500':
-   *         description: Database error
-   */
   @Get("/user/:user_id/stats")
+  @ApiBearerAuth("bearerAuth")
+  @ApiOperation({
+    summary: "Get user's quiz statistics",
+    description: "Returns the sum of scores and total time spent by a user",
+  })
+  @ApiParam({
+    name: "user_id",
+    type: Number,
+    description: "ID of the user to get statistics for",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "User quiz statistics retrieved successfully",
+    schema: {
+      type: "object",
+      properties: {
+        points: { type: "integer", example: 15 },
+        totalTimeSeconds: { type: "integer", example: 360 },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: "Invalid user ID" })
+  @ApiResponse({ status: 500, description: "Database error" })
   async getUserQuizStats(@Param("user_id") user_id: string) {
     try {
       if (
@@ -218,50 +199,16 @@ export class QuizResultController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/quiz-result/user/{user_id}/history:
-   *   get:
-   *     summary: Get user's quiz history
-   *     description: Returns list of completed quizzes with scores and time spent
-   *     tags:
-   *       - Quiz Result
-   *     parameters:
-   *       - in: path
-   *         name: user_id
-   *         schema:
-   *           type: integer
-   *         required: true
-   *         description: ID of the user
-   *     responses:
-   *       200:
-   *         description: OK
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: array
-   *               items:
-   *                 type: object
-   *                 properties:
-   *                   quiz_id:
-   *                     type: integer
-   *                   quiz_name_fi:
-   *                     type: string
-   *                   quiz_name_en:
-   *                     type: string
-   *                   score:
-   *                     type: integer
-   *                   time_spent_seconds:
-   *                     type: integer
-   *                   completed_at:
-   *                     type: string
-   *                     format: date-time
-   *       400:
-   *         description: Invalid user ID
-   *       500:
-   *         description: Database error
-   */
   @Get("/user/:user_id/history")
+  @ApiBearerAuth("bearerAuth")
+  @ApiOperation({
+    summary: "Get user's quiz history",
+    description: "Returns completed quizzes with scores and time spent",
+  })
+  @ApiParam({ name: "user_id", type: Number, description: "ID of the user" })
+  @ApiResponse({ status: 200, description: "Quiz history retrieved" })
+  @ApiResponse({ status: 400, description: "Invalid user ID" })
+  @ApiResponse({ status: 500, description: "Database error" })
   async getUserQuizHistory(@Param("user_id") user_id: string) {
     try {
       if (

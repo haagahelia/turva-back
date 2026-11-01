@@ -11,26 +11,27 @@ import {
   Post,
   Put,
 } from "@nestjs/common";
+import {
+  ApiBody,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 
 import { pool } from "../config/db";
 
-/**
- * @openapi
- * /api/crisis-team:
- *   get:
- *     summary: Returns all crisis team contacts
- *     description: Selects all from CrisisTeam, orders them by order_number and returns json
- *     tags:
- *       - Crisis Team
- *     responses:
- *       '200':
- *         description: OK
- *       '500':
- *         description: Database query failed
- */
 @Controller("crisis-team")
+@ApiTags("Crisis Team")
 export class CrisisTeamController {
   @Get("/")
+  @ApiOperation({
+    summary: "Returns all crisis team contacts",
+    description:
+      "Returns active crisis team contacts ordered by their configured order",
+  })
+  @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({ status: 500, description: "Database query failed" })
   async getAllCrisisTeamContacts() {
     try {
       const result = await pool.query(
@@ -46,32 +47,20 @@ export class CrisisTeamController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/crisis-team/{id}:
-   *   get:
-   *     summary: Get crisis team contact by ID
-   *     description: Selects all from CrisisTeam where the ID matches the provided ID
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         schema:
-   *           type: integer
-   *         required: true
-   *         description: Numeric ID of the contact to get
-   *     tags:
-   *       - Crisis Team
-   *     responses:
-   *       '200':
-   *         description: OK
-   *       '400':
-   *         description: Invalid ID format
-   *       '404':
-   *         description: ID not found
-   *       '500':
-   *         description: Database query failed
-   */
   @Get("/:id")
+  @ApiOperation({
+    summary: "Get crisis team contact by ID",
+    description: "Returns the crisis team contact with the supplied ID",
+  })
+  @ApiParam({
+    name: "id",
+    type: Number,
+    description: "Numeric ID of the contact to get",
+  })
+  @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({ status: 400, description: "Invalid ID format" })
+  @ApiResponse({ status: 404, description: "ID not found" })
+  @ApiResponse({ status: 500, description: "Database query failed" })
   async getCrisisTeamContactById(@Param("id") id: string) {
     try {
       const numericId = Number(id);
@@ -97,32 +86,20 @@ export class CrisisTeamController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/crisis-team/{id}:
-   *   delete:
-   *     summary: Soft delete crisis team contact by ID
-   *     description: Soft delete contact where the ID you give matches the ID of the contact you want to delete
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         schema:
-   *           type: integer
-   *         required: true
-   *         description: Numeric ID of the contact you want to delete
-   *     tags:
-   *       - Crisis Team
-   *     responses:
-   *       '200':
-   *         description: OK
-   *       '400':
-   *         description: Invalid ID format
-   *       '404':
-   *         description: ID not found
-   *       '500':
-   *         description: Delete failed
-   */
   @Delete("/:id")
+  @ApiOperation({
+    summary: "Soft delete crisis team contact by ID",
+    description: "Soft deletes the contact with the supplied ID",
+  })
+  @ApiParam({
+    name: "id",
+    type: Number,
+    description: "Numeric ID of the contact to delete",
+  })
+  @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({ status: 400, description: "Invalid ID format" })
+  @ApiResponse({ status: 404, description: "ID not found" })
+  @ApiResponse({ status: 500, description: "Delete failed" })
   async deleteCrisisTeamContact(@Param("id") id: string) {
     try {
       const numericId = Number(id);
@@ -146,56 +123,37 @@ export class CrisisTeamController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/crisis-team:
-   *   post:
-   *     summary: Add new crisis team contact to db
-   *     description: Insert into CrisisTeam. order_number is assigned automatically as MAX + 1
-   *     requestBody:
-   *       description: organization_id, name_fi, name_en, role_fi, role_en, phone
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required:
-   *               - organization_id
-   *               - name_fi
-   *               - name_en
-   *               - role_fi
-   *               - role_en
-   *               - phone
-   *             properties:
-   *               organization_id:
-   *                 type: integer
-   *                 example: 1
-   *               name_fi:
-   *                 type: string
-   *                 example: "Teemu Kokko"
-   *               name_en:
-   *                 type: string
-   *                 example: "Teemu Kokko"
-   *               role_fi:
-   *                 type: string
-   *                 example: "Rehtori"
-   *               role_en:
-   *                 type: string
-   *                 example: "Rector"
-   *               phone:
-   *                 type: string
-   *                 example: "050 555 1131"
-   *     tags:
-   *       - Crisis Team
-   *     responses:
-   *       '201':
-   *         description: Created
-   *       '400':
-   *         description: Missing required fields
-   *       '500':
-   *         description: Insert failed
-   */
   @Post("/")
+  @ApiOperation({
+    summary: "Add new crisis team contact to db",
+    description:
+      "Creates a contact and assigns order_number as the current maximum plus one",
+  })
+  @ApiBody({
+    required: true,
+    schema: {
+      type: "object",
+      required: [
+        "organization_id",
+        "name_fi",
+        "name_en",
+        "role_fi",
+        "role_en",
+        "phone",
+      ],
+      properties: {
+        organization_id: { type: "integer", example: 1 },
+        name_fi: { type: "string", example: "Teemu Kokko" },
+        name_en: { type: "string", example: "Teemu Kokko" },
+        role_fi: { type: "string", example: "Rehtori" },
+        role_en: { type: "string", example: "Rector" },
+        phone: { type: "string", example: "050 555 1131" },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: "Created" })
+  @ApiResponse({ status: 400, description: "Missing required fields" })
+  @ApiResponse({ status: 500, description: "Insert failed" })
   async createCrisisTeamContact(@Body() body: Record<string, any>) {
     try {
       const { organization_id, name_fi, name_en, role_fi, role_en, phone } =
@@ -227,55 +185,36 @@ export class CrisisTeamController {
     }
   }
 
-  /**
-   * @openapi
-   * /api/crisis-team/{id}:
-   *   put:
-   *     summary: Update crisis team contact
-   *     description: Update contact where ID matches
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         schema:
-   *           type: integer
-   *         required: true
-   *         description: Numeric ID of the contact to update
-   *     requestBody:
-   *       description: name_fi, name_en, role_fi, role_en, phone, order_number
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             properties:
-   *               name_fi:
-   *                 type: string
-   *                 example: "Jane Doe"
-   *               name_en:
-   *                 type: string
-   *                 example: "Jane Doe"
-   *               role_fi:
-   *                 type: string
-   *                 example: "Uusi rooli"
-   *               role_en:
-   *                 type: string
-   *                 example: "New Role"
-   *               phone:
-   *                 type: string
-   *                 example: "050 123 4567"
-   *     tags:
-   *       - Crisis Team
-   *     responses:
-   *       '200':
-   *         description: Updated successfully
-   *       '400':
-   *         description: Invalid ID format or missing required fields
-   *       '404':
-   *         description: ID not found
-   *       '500':
-   *         description: Update failed
-   */
   @Put("/:id")
+  @ApiOperation({
+    summary: "Update crisis team contact",
+    description: "Updates the contact with the supplied ID",
+  })
+  @ApiParam({
+    name: "id",
+    type: Number,
+    description: "Numeric ID of the contact to update",
+  })
+  @ApiBody({
+    required: true,
+    schema: {
+      type: "object",
+      properties: {
+        name_fi: { type: "string", example: "Jane Doe" },
+        name_en: { type: "string", example: "Jane Doe" },
+        role_fi: { type: "string", example: "Uusi rooli" },
+        role_en: { type: "string", example: "New Role" },
+        phone: { type: "string", example: "050 123 4567" },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: "Updated successfully" })
+  @ApiResponse({
+    status: 400,
+    description: "Invalid ID format or missing required fields",
+  })
+  @ApiResponse({ status: 404, description: "ID not found" })
+  @ApiResponse({ status: 500, description: "Update failed" })
   async updateCrisisTeamContact(
     @Param("id") id: string,
     @Body() body: Record<string, any>

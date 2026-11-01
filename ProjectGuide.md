@@ -41,7 +41,7 @@ This guide is a handoff for developers who need to continue working on the Turva
 - JWT auth via `jsonwebtoken`
 - OTP hashing via `bcryptjs`
 - Email sending via `nodemailer` (Ethereal test SMTP)
-- OpenAPI docs via `swagger-jsdoc` and `swagger-ui-express`
+- OpenAPI documentation via `@nestjs/swagger`
 
 ## 3. Application Structure
 
@@ -74,7 +74,7 @@ Request
 
 **Swagger**
 
-- If `ENABLE_SWAGGER=true`, Swagger UI is enabled at `/docs` (configured in [src/utils/swagger.ts](src/utils/swagger.ts)).
+- If `ENABLE_SWAGGER=true`, Swagger UI is enabled at `/docs` and the OpenAPI JSON is available at `/docs.json`. The document is generated from Nest route and Swagger decorators in [src/app.ts](src/app.ts) and the route controllers.
 
 ## 5. Data Sources and Models
 
@@ -225,4 +225,4 @@ Route implementations are in [src/routes](src/routes).
 - Auth helpers: [src/utils/verification.ts](src/utils/verification.ts)
 - JWT helper: [src/utils/tokenGenerator.ts](src/utils/tokenGenerator.ts)
 - Email helper: [src/utils/emailer.ts](src/utils/emailer.ts)
-- Swagger config: [src/utils/swagger.ts](src/utils/swagger.ts)
+- Swagger setup: [src/app.ts](src/app.ts)
