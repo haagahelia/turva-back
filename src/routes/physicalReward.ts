@@ -199,13 +199,11 @@ router.post("/claim", async (req: Request, res: Response): Promise<void> => {
     const completedWorlds = parseInt(completedResult.rows[0].completed, 10);
 
     if (completedWorlds < totalWorlds || totalWorlds === 0) {
-      res
-        .status(403)
-        .json({
-          error: "Not all worlds completed",
-          completedWorlds,
-          totalWorlds,
-        });
+      res.status(403).json({
+        error: "Not all worlds completed",
+        completedWorlds,
+        totalWorlds,
+      });
       return;
     }
 

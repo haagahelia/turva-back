@@ -192,12 +192,10 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
       !role_en ||
       !phone
     ) {
-      res
-        .status(400)
-        .json({
-          error:
-            "organization_id, name_fi, name_en, role_fi, role_en, and phone are required",
-        });
+      res.status(400).json({
+        error:
+          "organization_id, name_fi, name_en, role_fi, role_en, and phone are required",
+      });
       return;
     }
     const result = await pool.query(
@@ -273,11 +271,9 @@ router.put("/:id", async (req: Request, res: Response): Promise<void> => {
 
     const { name_fi, name_en, role_fi, role_en, phone } = req.body;
     if (!name_fi || !name_en || !role_fi || !role_en || !phone) {
-      res
-        .status(400)
-        .json({
-          error: "name_fi, name_en, role_fi, role_en, and phone are required",
-        });
+      res.status(400).json({
+        error: "name_fi, name_en, role_fi, role_en, and phone are required",
+      });
       return;
     }
     const result = await pool.query(

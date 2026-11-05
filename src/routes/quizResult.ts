@@ -123,13 +123,11 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
       bonusAwarded = (bonusResult.rowCount ?? 0) > 0;
     }
 
-    res
-      .status(201)
-      .json({
-        message: "Result saved successfully",
-        worldCompleted,
-        bonusAwarded,
-      });
+    res.status(201).json({
+      message: "Result saved successfully",
+      worldCompleted,
+      bonusAwarded,
+    });
   } catch (err) {
     console.error("Error saving quiz result:", err);
     res.status(500).json({ error: "Database error" });
