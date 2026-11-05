@@ -1,9 +1,17 @@
 import createApp from "../src/app";
 import request, { Response } from "supertest";
 import { connectDB, pool } from "../src/config/db";
-import { Express } from "express";
+import { INestApplication } from "@nestjs/common";
 
-const app: Express = createApp();
+let app: INestApplication;
+
+beforeAll(async () => {
+  app = await createApp();
+});
+
+afterAll(async () => {
+  await app.close();
+});
 
 describe("Quiz api integration tests", () => {
   let testQuizId: number;
@@ -48,17 +56,17 @@ describe("Quiz api integration tests", () => {
 
   describe("GET /api/quiz", () => {
     it("Should return a 200 response", async () => {
-      const res: Response = await request(app).get("/api/quiz");
+      const res: Response = await request(app.getHttpServer()).get("/api/quiz");
       expect(res.statusCode).toBe(200);
     });
 
     it("Should return a valid JSON array as a response", async () => {
-      const res: Response = await request(app).get("/api/quiz");
+      const res: Response = await request(app.getHttpServer()).get("/api/quiz");
       expect(Array.isArray(res.body)).toBe(true);
     });
 
     it("Should return all quizzes from the database", async () => {
-      const res: Response = await request(app).get("/api/quiz");
+      const res: Response = await request(app.getHttpServer()).get("/api/quiz");
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThan(0);
 
@@ -69,7 +77,7 @@ describe("Quiz api integration tests", () => {
     });
 
     it("Should verify that the quiz has the correct quiz properties", async () => {
-      const res: Response = await request(app).get("/api/quiz");
+      const res: Response = await request(app.getHttpServer()).get("/api/quiz");
       const firstQuiz = res.body[0];
       expect(firstQuiz).toHaveProperty("quiz_id");
       expect(firstQuiz).toHaveProperty("world_id");
@@ -82,18 +90,24 @@ describe("Quiz api integration tests", () => {
 
   describe("GET /api/quiz/:id", () => {
     it("Should return a 200 status code when quiz exists", async () => {
-      const res: Response = await request(app).get(`/api/quiz/${testQuizId}`);
+      const res: Response = await request(app.getHttpServer()).get(
+        `/api/quiz/${testQuizId}`
+      );
       expect(res.statusCode).toBe(200);
     });
 
     it("Should return a valid JSON object as response", async () => {
-      const res: Response = await request(app).get(`/api/quiz/${testQuizId}`);
+      const res: Response = await request(app.getHttpServer()).get(
+        `/api/quiz/${testQuizId}`
+      );
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThan(0);
     });
 
     it("Should return correct quiz properties", async () => {
-      const res: Response = await request(app).get(`/api/quiz/${testQuizId}`);
+      const res: Response = await request(app.getHttpServer()).get(
+        `/api/quiz/${testQuizId}`
+      );
       const quiz = res.body[0];
       expect(quiz).toHaveProperty("quiz_id");
       expect(quiz).toHaveProperty("world_id");
@@ -105,46 +119,60 @@ describe("Quiz api integration tests", () => {
     });
 
     it("Should return 404 when quiz ID does not exist", async () => {
-      const res: Response = await request(app).get("/api/quiz/99999");
+      const res: Response = await request(app.getHttpServer()).get(
+        "/api/quiz/99999"
+      );
       expect(res.statusCode).toBe(404);
       expect(res.body).toHaveProperty("error");
       expect(res.body.error).toBe("ID not found");
     });
 
     it("Should return 400 for invalid ID format", async () => {
-      const res: Response = await request(app).get("/api/quiz/abc123");
+      const res: Response = await request(app.getHttpServer()).get(
+        "/api/quiz/abc123"
+      );
       expect(res.statusCode).toBe(400);
       expect(res.body).toHaveProperty("error");
       expect(res.body.error).toBe("Invalid ID format");
     });
 
     it("Should return 400 with empty ID", async () => {
-      const res: Response = await request(app).get("/api/quiz/ /");
+      const res: Response = await request(app.getHttpServer()).get(
+        "/api/quiz/ /"
+      );
       expect(res.statusCode).toBe(400);
       expect(res.body).toHaveProperty("error");
       expect(res.body.error).toBe("Invalid ID format");
     });
 
     it("Should handle negative ID", async () => {
-      const res: Response = await request(app).get("/api/quiz/-1");
+      const res: Response = await request(app.getHttpServer()).get(
+        "/api/quiz/-1"
+      );
       expect(res.statusCode).toBe(404);
     });
   });
 
   describe("GET /api/quiz/world/:world_id/quizzes", () => {
     it("Should return 200 status code", async () => {
-      const res: Response = await request(app).get(`/api/quiz/world/1/quizzes`);
+      const res: Response = await request(app.getHttpServer()).get(
+        `/api/quiz/world/1/quizzes`
+      );
       expect(res.statusCode).toBe(200);
     });
 
     it("Should return a valid JSON response", async () => {
-      const res: Response = await request(app).get(`/api/quiz/world/1/quizzes`);
+      const res: Response = await request(app.getHttpServer()).get(
+        `/api/quiz/world/1/quizzes`
+      );
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThan(0);
     });
 
     it("Should contain a quiz with the correct properties", async () => {
-      const res: Response = await request(app).get(`/api/quiz/world/1/quizzes`);
+      const res: Response = await request(app.getHttpServer()).get(
+        `/api/quiz/world/1/quizzes`
+      );
       const quiz = res.body[0];
       expect(res.body.length).toBeGreaterThan(0);
       expect(quiz).toHaveProperty("quiz_id");
@@ -156,7 +184,7 @@ describe("Quiz api integration tests", () => {
     });
 
     it("Should return 404 status code with incorrect world ID", async () => {
-      const res: Response = await request(app).get(
+      const res: Response = await request(app.getHttpServer()).get(
         `/api/quiz/world/99999/quizzes`
       );
       expect(res.statusCode).toBe(404);
@@ -164,7 +192,7 @@ describe("Quiz api integration tests", () => {
     });
 
     it("Should return 400 status code with incorrect world ID format", async () => {
-      const res: Response = await request(app).get(
+      const res: Response = await request(app.getHttpServer()).get(
         `/api/quiz/world/abc123/quizzes`
       );
       expect(res.statusCode).toBe(400);
@@ -178,7 +206,9 @@ describe("Quiz api integration tests", () => {
           new Error("Database connection failed") as never
         );
 
-      const res: Response = await request(app).get(`/api/quiz/world/1/quizzes`);
+      const res: Response = await request(app.getHttpServer()).get(
+        `/api/quiz/world/1/quizzes`
+      );
 
       expect(res.statusCode).toBe(500);
       expect(res.body).toHaveProperty("error");
@@ -208,14 +238,14 @@ describe("Quiz api integration tests", () => {
 
     describe("Successful creation", () => {
       it("Should return 201 status code when quiz is created successfully", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(getQuiz());
         expect(res.statusCode).toBe(201);
       });
 
       it("Should return a response that contains the required fields", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(getQuiz());
         expect(res.body).toHaveProperty("quiz_id");
@@ -227,7 +257,7 @@ describe("Quiz api integration tests", () => {
       });
 
       it("Should verify the quiz is actually inserted into the database", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(getQuiz());
         const quizId = res.body.quiz_id;
@@ -252,7 +282,7 @@ describe("Quiz api integration tests", () => {
           quiz_name: quizName,
           order_number: orderNumber,
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithoutContent);
         expect(res.statusCode).toBe(201);
@@ -264,7 +294,7 @@ describe("Quiz api integration tests", () => {
           quiz_content: " ",
           order_number: orderNumber,
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithoutContent);
 
@@ -279,7 +309,7 @@ describe("Quiz api integration tests", () => {
           quiz_content: quizContent,
           order_number: orderNumber,
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithoutWorldId);
         expect(res.statusCode).toBe(400);
@@ -293,7 +323,7 @@ describe("Quiz api integration tests", () => {
           quiz_content: quizContent,
           order_number: orderNumber,
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithoutQuizName);
         expect(res.statusCode).toBe(400);
@@ -307,7 +337,7 @@ describe("Quiz api integration tests", () => {
           quiz_name: quizName,
           quiz_content: quizContent,
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithoutOrderNumber);
         expect(res.statusCode).toBe(400);
@@ -317,7 +347,7 @@ describe("Quiz api integration tests", () => {
       });
       it("Should return 400 when all required fields are missing", async () => {
         const quizWithoutFields = {};
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithoutFields);
         expect(res.statusCode).toBe(400);
@@ -337,7 +367,7 @@ describe("Quiz api integration tests", () => {
           quiz_content: quizContent,
           order_number: orderNumber,
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithInvalidWorldId);
         expect(res.statusCode).toBe(201);
@@ -350,7 +380,7 @@ describe("Quiz api integration tests", () => {
           quiz_content: quizContent,
           order_number: orderNumber + "",
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithInvalidWorldId);
         expect(res.statusCode).toBe(201);
@@ -362,7 +392,7 @@ describe("Quiz api integration tests", () => {
           quiz_content: quizContent,
           order_number: -10,
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithInvalidWorldId);
         expect(res.statusCode).toBe(400);
@@ -375,7 +405,7 @@ describe("Quiz api integration tests", () => {
           order_number: orderNumber,
         };
 
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .post("/api/quiz")
           .send(quizWithInvalidWorldId);
         expect(res.statusCode).toBe(400);
@@ -392,14 +422,14 @@ describe("Quiz api integration tests", () => {
     };
     describe("Success cases", () => {
       it("Should be able to update and return a 201 response", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(201);
       });
 
       it('Should contain "Updated successfully" message', async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(201);
@@ -409,7 +439,7 @@ describe("Quiz api integration tests", () => {
       });
 
       it("Verify updated data persists", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(201);
@@ -427,7 +457,7 @@ describe("Quiz api integration tests", () => {
         );
         const oldCreatedAt = new Date(result.rows[0].created_at).getTime();
 
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(201);
@@ -440,7 +470,7 @@ describe("Quiz api integration tests", () => {
 
     describe("ID Parameter Validation", () => {
       it("Should return 400 when quiz ID does not exist", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put("/api/quiz/99999")
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(400);
@@ -449,14 +479,14 @@ describe("Quiz api integration tests", () => {
       });
 
       it("Should return 400 for invalid ID format (non-numeric)", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put("/api/quiz/abc123")
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(400);
       });
 
       it("Should handle negative ID", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put("/api/quiz/-1")
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(400);
@@ -464,7 +494,7 @@ describe("Quiz api integration tests", () => {
       });
 
       it("Should handle zero as ID", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put("/api/quiz/0")
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(400);
@@ -472,7 +502,7 @@ describe("Quiz api integration tests", () => {
       });
 
       it("Should handle very large ID number (PostgreSQL integer overflow)", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put("/api/quiz/999999999999")
           .send(updatedQuizContent);
         expect([400, 500]).toContain(res.statusCode);
@@ -481,7 +511,7 @@ describe("Quiz api integration tests", () => {
 
     describe("Body validation", () => {
       it("Should accept empty object as body", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send({});
         expect(res.statusCode).toBe(201);
@@ -489,7 +519,7 @@ describe("Quiz api integration tests", () => {
       });
 
       it("Should not accept plain string values", async () => {
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send("plain string content");
 
@@ -500,7 +530,7 @@ describe("Quiz api integration tests", () => {
 
       it("Should accept array in request body", async () => {
         const arrayContent = ["item1", "item2", "item3"];
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(arrayContent);
         expect(res.statusCode).toBe(201);
@@ -508,7 +538,9 @@ describe("Quiz api integration tests", () => {
       });
 
       it("Should reject request with no body", async () => {
-        const res: Response = await request(app).put(`/api/quiz/${testQuizId}`);
+        const res: Response = await request(app.getHttpServer()).put(
+          `/api/quiz/${testQuizId}`
+        );
         expect(res.statusCode).toBe(400);
         expect(res.body).toHaveProperty("error");
         expect(res.body.error).toBe("Request body must be valid JSON");
@@ -521,7 +553,7 @@ describe("Quiz api integration tests", () => {
           unicode: "你好世界 🌍 émojis",
           backslash: "path\\to\\file",
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(specialContent);
         expect(res.statusCode).toBe(201);
@@ -540,7 +572,7 @@ describe("Quiz api integration tests", () => {
             },
           },
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(nestedContent);
         expect(res.statusCode).toBe(201);
@@ -553,7 +585,7 @@ describe("Quiz api integration tests", () => {
           isArchived: false,
           hasMedia: true,
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(booleanContent);
         expect(res.statusCode).toBe(201);
@@ -567,7 +599,7 @@ describe("Quiz api integration tests", () => {
           negative: -10,
           zero: 0,
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(numericContent);
         expect(res.statusCode).toBe(201);
@@ -582,7 +614,7 @@ describe("Quiz api integration tests", () => {
             options: ["A", "B", "C", "D"],
           }),
         };
-        const res: Response = await request(app)
+        const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(largeContent);
         expect(res.statusCode).toBe(201);
@@ -616,14 +648,14 @@ describe("Quiz api integration tests", () => {
 
     describe("Success cases", () => {
       it("Should return 200 status code when quiz is deleted successfully", async () => {
-        const res: Response = await request(app).delete(
+        const res: Response = await request(app.getHttpServer()).delete(
           `/api/quiz/${deleteTestQuizId}`
         );
         expect(res.statusCode).toBe(200);
       });
 
       it('Should contain "Deleted successfully" message', async () => {
-        const res: Response = await request(app).delete(
+        const res: Response = await request(app.getHttpServer()).delete(
           `/api/quiz/${deleteTestQuizId}`
         );
         expect(res.statusCode).toBe(200);
@@ -632,7 +664,7 @@ describe("Quiz api integration tests", () => {
       });
 
       it("Should return deleted quiz object with all properties", async () => {
-        const res: Response = await request(app).delete(
+        const res: Response = await request(app.getHttpServer()).delete(
           `/api/quiz/${deleteTestQuizId}`
         );
         expect(res.statusCode).toBe(200);
@@ -649,7 +681,7 @@ describe("Quiz api integration tests", () => {
       });
 
       it("Should verify quiz is actually deleted from database", async () => {
-        const res: Response = await request(app).delete(
+        const res: Response = await request(app.getHttpServer()).delete(
           `/api/quiz/${deleteTestQuizId}`
         );
         expect(res.statusCode).toBe(200);
@@ -664,26 +696,32 @@ describe("Quiz api integration tests", () => {
 
     describe("ID Parameter Validation", () => {
       it("Should return 404 when quiz ID does not exist", async () => {
-        const res: Response = await request(app).delete("/api/quiz/99999");
+        const res: Response = await request(app.getHttpServer()).delete(
+          "/api/quiz/99999"
+        );
         expect(res.statusCode).toBe(404);
         expect(res.body).toHaveProperty("error");
         expect(res.body.error).toBe("ID not found");
       });
 
       it("Should handle negative ID", async () => {
-        const res: Response = await request(app).delete("/api/quiz/-1");
+        const res: Response = await request(app.getHttpServer()).delete(
+          "/api/quiz/-1"
+        );
         expect(res.statusCode).toBe(404);
         expect(res.body.error).toBe("ID not found");
       });
 
       it("Should handle zero as ID", async () => {
-        const res: Response = await request(app).delete("/api/quiz/0");
+        const res: Response = await request(app.getHttpServer()).delete(
+          "/api/quiz/0"
+        );
         expect(res.statusCode).toBe(404);
         expect(res.body.error).toBe("ID not found");
       });
 
       it("Should handle very large ID number", async () => {
-        const res: Response = await request(app).delete(
+        const res: Response = await request(app.getHttpServer()).delete(
           "/api/quiz/999999999999"
         );
         console.log(res.body);
@@ -700,7 +738,7 @@ describe("Quiz api integration tests", () => {
             new Error("Database connection failed") as never
           );
 
-        const res: Response = await request(app).delete(
+        const res: Response = await request(app.getHttpServer()).delete(
           `/api/quiz/${deleteTestQuizId}`
         );
 
@@ -714,12 +752,12 @@ describe("Quiz api integration tests", () => {
 
     describe("Edge cases", () => {
       it("Should return 404 when trying to delete the same quiz twice", async () => {
-        const firstRes: Response = await request(app).delete(
+        const firstRes: Response = await request(app.getHttpServer()).delete(
           `/api/quiz/${deleteTestQuizId}`
         );
         expect(firstRes.statusCode).toBe(200);
 
-        const secondRes: Response = await request(app).delete(
+        const secondRes: Response = await request(app.getHttpServer()).delete(
           `/api/quiz/${deleteTestQuizId}`
         );
         expect(secondRes.statusCode).toBe(404);
@@ -733,7 +771,7 @@ describe("Quiz api integration tests", () => {
         );
         expect(quizBefore.rows.length).toBe(1);
 
-        const res: Response = await request(app).delete(
+        const res: Response = await request(app.getHttpServer()).delete(
           `/api/quiz/${deleteTestQuizId}`
         );
         expect(res.statusCode).toBe(200);

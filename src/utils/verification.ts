@@ -1,30 +1,32 @@
 import bcrypt from "bcryptjs";
 import { pool } from "@/config/db";
 import jwt, { TokenExpiredError } from "jsonwebtoken";
-import { Request, Response } from "express";
+import { JwtPayload } from "jsonwebtoken";
+import { UnauthorizedException } from "@nestjs/common";
 
-//fix to work as needed, unused at the moment
-export const verifyToken = (req: Request, res: Response): unknown => {
+export const verifyToken = (authorization?: string): JwtPayload => {
   try {
-    const token: string | undefined = req
-      .header("Authorization")
-      ?.split(" ")[1];
+    const token = authorization?.split(" ")[1];
 
     if (!token) {
-      return res.status(401).json({ error: "No token provided" });
+      throw new UnauthorizedException({ error: "No token provided" });
     }
     const secret: string = process.env.JWT_SECRET || "";
-    let decoded;
     try {
-      decoded = jwt.verify(token, secret);
-    } catch (error: unknown) {
-      if (error instanceof TokenExpiredError) {
-        return res.status(401).json({ error: "Token has expired" });
+      const decoded = jwt.verify(token, secret);
+      if (typeof decoded === "string") {
+        throw new UnauthorizedException({ error: "Token is invalid" });
       }
-      return res.status(401).json({ error: "Token is invalid" });
+      return decoded;
+    } catch (error: unknown) {
+      if (error instanceof UnauthorizedException) throw error;
+      if (error instanceof TokenExpiredError) {
+        throw new UnauthorizedException({ error: "Token has expired" });
+      }
+      throw new UnauthorizedException({ error: "Token is invalid" });
     }
-    return decoded;
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedException) throw error;
     throw new Error("Internal server error: " + error);
   }
 };

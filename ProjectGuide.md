@@ -41,7 +41,7 @@ This guide is a handoff for developers who need to continue working on the Turva
 - JWT auth via `jsonwebtoken`
 - OTP hashing via `bcryptjs`
 - Email sending via `nodemailer` (Ethereal test SMTP)
-- OpenAPI docs via `swagger-jsdoc` and `swagger-ui-express`
+- OpenAPI documentation via `@nestjs/swagger`
 
 ## 3. Application Structure
 
@@ -50,17 +50,15 @@ This guide is a handoff for developers who need to continue working on the Turva
 ```
 Request
   -> CORS middleware
-  -> JSON parser
-  -> Express Router
-  -> Route handler
+  -> Nest controller
   -> SQL via pg Pool
   -> Response
 ```
 
 **Routing**
 
-- The router is mounted at `/api` in [src/app.ts](src/app.ts).
-- Route modules are aggregated in [src/routes/index.ts](src/routes/index.ts).
+- Controllers are registered directly in [src/app.module.ts](src/app.module.ts).
+- The global `/api` prefix is configured in [src/app.ts](src/app.ts).
 
 **Data access**
 
@@ -74,7 +72,7 @@ Request
 
 **Swagger**
 
-- If `ENABLE_SWAGGER=true`, Swagger UI is enabled at `/docs` (configured in [src/utils/swagger.ts](src/utils/swagger.ts)).
+- If `ENABLE_SWAGGER=true`, Swagger UI is enabled at `/docs` and the OpenAPI JSON is available at `/docs.json`. The document is generated from Nest route and Swagger decorators in [src/app.ts](src/app.ts) and the route controllers.
 
 ## 5. Data Sources and Models
 
@@ -157,7 +155,7 @@ Base path: `/api`
 
 - `GET /physical-reward/verify/:code` returns HTML
 
-Route implementations are in [src/routes](src/routes).
+Controller implementations are in [src/controllers](src/controllers).
 
 ## 7. Authentication Flow
 
@@ -202,7 +200,7 @@ Route implementations are in [src/routes](src/routes).
 ## 10. Not Present in This Repo
 
 - No ORM or migration tool. Schema is defined in [sql/init.sql](sql/init.sql).
-- No service or repository layer; logic is inside route handlers.
+- No service or repository layer; logic is inside controller methods.
 - No explicit role-based access control or privileged-route guards.
 - No background workers, queues, or scheduled jobs.
 - No monitoring or tracing integration.
@@ -211,18 +209,18 @@ Route implementations are in [src/routes](src/routes).
 
 - Entry point: [src/index.ts](src/index.ts)
 - App setup: [src/app.ts](src/app.ts)
-- Routes index: [src/routes/index.ts](src/routes/index.ts)
-- Auth routes: [src/routes/auth.ts](src/routes/auth.ts)
-- Info routes: [src/routes/info.ts](src/routes/info.ts)
-- Quiz routes: [src/routes/quiz.ts](src/routes/quiz.ts)
-- Quiz result routes: [src/routes/quizResult.ts](src/routes/quizResult.ts)
-- World routes: [src/routes/world.ts](src/routes/world.ts)
-- World bonus routes: [src/routes/worldBonus.ts](src/routes/worldBonus.ts)
-- Crisis team routes: [src/routes/crisisTeam.ts](src/routes/crisisTeam.ts)
-- Physical reward routes: [src/routes/physicalReward.ts](src/routes/physicalReward.ts)
+- Status controller: [src/controllers/status.controller.ts](src/controllers/status.controller.ts)
+- Auth controller: [src/controllers/auth.controller.ts](src/controllers/auth.controller.ts)
+- Info controller: [src/controllers/info.controller.ts](src/controllers/info.controller.ts)
+- Quiz controller: [src/controllers/quiz.controller.ts](src/controllers/quiz.controller.ts)
+- Quiz result controller: [src/controllers/quiz-result.controller.ts](src/controllers/quiz-result.controller.ts)
+- World controller: [src/controllers/world.controller.ts](src/controllers/world.controller.ts)
+- World bonus controller: [src/controllers/world-bonus.controller.ts](src/controllers/world-bonus.controller.ts)
+- Crisis team controller: [src/controllers/crisis-team.controller.ts](src/controllers/crisis-team.controller.ts)
+- Physical reward controller: [src/controllers/physical-reward.controller.ts](src/controllers/physical-reward.controller.ts)
 - DB config: [src/config/db.ts](src/config/db.ts)
 - CORS config: [src/config/cors.ts](src/config/cors.ts)
 - Auth helpers: [src/utils/verification.ts](src/utils/verification.ts)
 - JWT helper: [src/utils/tokenGenerator.ts](src/utils/tokenGenerator.ts)
 - Email helper: [src/utils/emailer.ts](src/utils/emailer.ts)
-- Swagger config: [src/utils/swagger.ts](src/utils/swagger.ts)
+- Swagger setup: [src/app.ts](src/app.ts)

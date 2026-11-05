@@ -1,9 +1,29 @@
-import { Router, Request, Response } from "express";
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Headers,
+  HttpException,
+  InternalServerErrorException,
+  NotFoundException,
+  Param,
+  Post,
+  Res,
+  UnauthorizedException,
+} from "@nestjs/common";
+import type { Response } from "express";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiProduces,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
+
 import { pool } from "../config/db";
 import { verifyToken } from "../utils/verification";
 import crypto from "crypto";
-
-const router: Router = Router();
 
 const successHtml = (profileName: string) => `
 <!DOCTYPE html>
@@ -152,113 +172,132 @@ const notFoundHtml = () => `
 </html>
 `;
 
-/**
- * @openapi
- * /api/physical-reward/claim:
- *   post:
- *     summary: Claim physical reward (haalarimerkki)
- *     description: Generates a unique one-time QR code if all worlds are completed.
- *     tags:
- *       - Physical Reward
- *     responses:
- *       '200':
- *         description: Reward code returned successfully
- *       '403':
- *         description: Not all worlds completed
- *       '401':
- *         description: Unauthorized
- *       '500':
- *         description: Database error
- */
-router.post("/claim", async (req: Request, res: Response): Promise<void> => {
-  try {
-    const decoded = verifyToken(req, res);
-    if (!decoded || typeof decoded !== "object" || !("email" in decoded))
-      return;
-    const email = (decoded as { email: string }).email;
-
-    const userResult = await pool.query(
-      "SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL",
-      [email]
-    );
-    if (userResult.rows.length === 0) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-    const userId = userResult.rows[0].user_id;
-
-    const totalWorldsResult = await pool.query(
-      "SELECT COUNT(*) as total FROM World"
-    );
-    const totalWorlds = parseInt(totalWorldsResult.rows[0].total, 10);
-
-    const completedResult = await pool.query(
-      "SELECT COUNT(*) as completed FROM User_Completed_World WHERE user_id = $1",
-      [userId]
-    );
-    const completedWorlds = parseInt(completedResult.rows[0].completed, 10);
-
-    if (completedWorlds < totalWorlds || totalWorlds === 0) {
-      res.status(403).json({
-        error: "Not all worlds completed",
-        completedWorlds,
-        totalWorlds,
-      });
-      return;
-    }
-
-    const existingReward = await pool.query(
-      "SELECT reward_code, claimed_at FROM Physical_Reward WHERE user_id = $1",
-      [userId]
-    );
-
-    if (existingReward.rows.length > 0) {
-      const { reward_code, claimed_at } = existingReward.rows[0];
-      if (claimed_at) {
-        res.status(200).json({ alreadyClaimed: true, reward_code: null });
-      } else {
-        res.status(200).json({ alreadyClaimed: false, reward_code });
-      }
-      return;
-    }
-
-    const rewardCode = crypto.randomUUID();
-    await pool.query(
-      "INSERT INTO Physical_Reward (user_id, reward_code) VALUES ($1, $2)",
-      [userId, rewardCode]
-    );
-
-    res.status(201).json({ alreadyClaimed: false, reward_code: rewardCode });
-  } catch (err) {
-    console.error("Error claiming reward:", err);
-    res.status(500).json({ error: "Database error" });
-  }
-});
-
-/**
- * @openapi
- * /api/physical-reward/verify/{code}:
- *   get:
- *     summary: Verify and claim physical reward
- *     description: Verifies the QR code and marks it as claimed. Returns HTML page with result.
- *     tags:
- *       - Physical Reward
- *     parameters:
- *       - in: path
- *         name: code
- *         schema:
- *           type: string
- *         required: true
- *     responses:
- *       '200':
- *         description: HTML page with result
- */
-router.get(
-  "/verify/:code",
-  async (req: Request, res: Response): Promise<void> => {
+@Controller("physical-reward")
+@ApiTags("Physical Reward")
+export class PhysicalRewardController {
+  @Post("/claim")
+  @ApiBearerAuth("bearerAuth")
+  @ApiOperation({
+    summary: "Claim physical reward (haalarimerkki)",
+    description:
+      "Generates a unique one-time QR code if all worlds are completed",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Reward code returned successfully",
+  })
+  @ApiResponse({ status: 201, description: "Reward code created successfully" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({
+    status: 403,
+    description: "Not all worlds completed",
+    schema: {
+      type: "object",
+      properties: {
+        error: { type: "string" },
+        completedWorlds: { type: "integer" },
+        totalWorlds: { type: "integer" },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: "User not found" })
+  @ApiResponse({ status: 500, description: "Database error" })
+  async claimPhysicalReward(
+    @Headers("authorization") authorization: string,
+    @Res({ passthrough: true }) res: Response
+  ) {
     try {
-      const { code } = req.params;
+      const decoded = verifyToken(authorization);
+      if (typeof decoded.email !== "string") {
+        throw new UnauthorizedException({ error: "Token is invalid" });
+      }
+      const email = decoded.email;
 
+      const userResult = await pool.query(
+        "SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL",
+        [email]
+      );
+      if (userResult.rows.length === 0) {
+        throw new NotFoundException({ error: "User not found" });
+      }
+      const userId = userResult.rows[0].user_id;
+
+      const totalWorldsResult = await pool.query(
+        "SELECT COUNT(*) as total FROM World"
+      );
+      const totalWorlds = parseInt(totalWorldsResult.rows[0].total, 10);
+
+      const completedResult = await pool.query(
+        "SELECT COUNT(*) as completed FROM User_Completed_World WHERE user_id = $1",
+        [userId]
+      );
+      const completedWorlds = parseInt(completedResult.rows[0].completed, 10);
+
+      if (completedWorlds < totalWorlds || totalWorlds === 0) {
+        throw new ForbiddenException({
+          error: "Not all worlds completed",
+          completedWorlds,
+          totalWorlds,
+        });
+      }
+
+      const existingReward = await pool.query(
+        "SELECT reward_code, claimed_at FROM Physical_Reward WHERE user_id = $1",
+        [userId]
+      );
+
+      if (existingReward.rows.length > 0) {
+        const { reward_code, claimed_at } = existingReward.rows[0];
+        if (claimed_at) {
+          res.status(200);
+          return { alreadyClaimed: true, reward_code: null };
+        }
+        res.status(200);
+        return { alreadyClaimed: false, reward_code };
+      }
+
+      const rewardCode = crypto.randomUUID();
+      await pool.query(
+        "INSERT INTO Physical_Reward (user_id, reward_code) VALUES ($1, $2)",
+        [userId, rewardCode]
+      );
+
+      return { alreadyClaimed: false, reward_code: rewardCode };
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      console.error("Error claiming reward:", err);
+      throw new InternalServerErrorException({ error: "Database error" });
+    }
+  }
+
+  @Get("/verify/:code")
+  @ApiOperation({
+    summary: "Verify and claim physical reward",
+    description:
+      "Verifies the QR code, marks it as claimed, and returns an HTML page",
+  })
+  @ApiParam({ name: "code", type: String, required: true })
+  @ApiProduces("text/html")
+  @ApiResponse({
+    status: 200,
+    description: "HTML page with result",
+    content: { "text/html": { schema: { type: "string" } } },
+  })
+  @ApiResponse({
+    status: 404,
+    description: "Reward code not found",
+    content: { "text/html": { schema: { type: "string" } } },
+  })
+  @ApiResponse({
+    status: 500,
+    description: "Error verifying reward",
+    content: { "text/html": { schema: { type: "string" } } },
+  })
+  async verifyPhysicalReward(
+    @Param("code") code: string,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    try {
       const result = await pool.query(
         `SELECT pr.reward_id, pr.claimed_at, tu.profile_name
        FROM Physical_Reward pr
@@ -269,16 +308,15 @@ router.get(
 
       if (result.rows.length === 0) {
         res.setHeader("Content-Type", "text/html");
-        res.status(404).send(notFoundHtml());
-        return;
+        res.status(404);
+        return notFoundHtml();
       }
 
       const { reward_id, claimed_at, profile_name } = result.rows[0];
 
       if (claimed_at) {
         res.setHeader("Content-Type", "text/html");
-        res.status(200).send(alreadyClaimedHtml(profile_name, claimed_at));
-        return;
+        return alreadyClaimedHtml(profile_name, claimed_at);
       }
 
       await pool.query(
@@ -287,13 +325,12 @@ router.get(
       );
 
       res.setHeader("Content-Type", "text/html");
-      res.status(200).send(successHtml(profile_name));
+      return successHtml(profile_name);
     } catch (err) {
       console.error("Error verifying reward:", err);
       res.setHeader("Content-Type", "text/html");
-      res.status(500).send(notFoundHtml());
+      res.status(500);
+      return notFoundHtml();
     }
   }
-);
-
-export default router;
+}

@@ -1,3 +1,6 @@
+# Built application files
+build/
+
 # Logs
 logs
 *.log
