@@ -1,7 +1,7 @@
-import { Router, Request, Response } from 'express';
-import { pool } from '../config/db';
-import { verifyToken } from '../utils/verification';
-import crypto from 'crypto';
+import { Router, Request, Response } from "express";
+import { pool } from "../config/db";
+import { verifyToken } from "../utils/verification";
+import crypto from "crypto";
 
 const router: Router = Router();
 
@@ -49,7 +49,7 @@ const successHtml = (profileName: string) => `
     <div class="title">Anna haalarimerkki</div>
     <div class="name">${profileName}</div>
     <div class="divider"></div>
-    <div class="date">${new Date().toLocaleDateString('fi-FI', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    <div class="date">${new Date().toLocaleDateString("fi-FI", { day: "numeric", month: "long", year: "numeric" })}</div>
     <div class="badge">Kaikki maailmat suoritettu</div>
   </div>
 </body>
@@ -100,7 +100,7 @@ const alreadyClaimedHtml = (profileName: string, claimedAt: Date) => `
     <div class="title">Koodi on jo käytetty</div>
     <div class="name">${profileName}</div>
     <div class="divider"></div>
-    <div class="date">Lunastettu: ${new Date(claimedAt).toLocaleDateString('fi-FI', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    <div class="date">Lunastettu: ${new Date(claimedAt).toLocaleDateString("fi-FI", { day: "numeric", month: "long", year: "numeric" })}</div>
     <div class="badge">Haalarimerkki on jo annettu</div>
   </div>
 </body>
@@ -170,38 +170,45 @@ const notFoundHtml = () => `
  *       '500':
  *         description: Database error
  */
-router.post('/claim', async (req: Request, res: Response): Promise<void> => {
+router.post("/claim", async (req: Request, res: Response): Promise<void> => {
   try {
     const decoded = verifyToken(req, res);
-    if (!decoded || typeof decoded !== 'object' || !('email' in decoded)) return;
+    if (!decoded || typeof decoded !== "object" || !("email" in decoded))
+      return;
     const email = (decoded as { email: string }).email;
 
     const userResult = await pool.query(
-      'SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL',
+      "SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL",
       [email]
     );
     if (userResult.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: "User not found" });
       return;
     }
     const userId = userResult.rows[0].user_id;
 
-    const totalWorldsResult = await pool.query('SELECT COUNT(*) as total FROM World');
+    const totalWorldsResult = await pool.query(
+      "SELECT COUNT(*) as total FROM World"
+    );
     const totalWorlds = parseInt(totalWorldsResult.rows[0].total, 10);
 
     const completedResult = await pool.query(
-      'SELECT COUNT(*) as completed FROM User_Completed_World WHERE user_id = $1',
+      "SELECT COUNT(*) as completed FROM User_Completed_World WHERE user_id = $1",
       [userId]
     );
     const completedWorlds = parseInt(completedResult.rows[0].completed, 10);
 
     if (completedWorlds < totalWorlds || totalWorlds === 0) {
-      res.status(403).json({ error: 'Not all worlds completed', completedWorlds, totalWorlds });
+      res.status(403).json({
+        error: "Not all worlds completed",
+        completedWorlds,
+        totalWorlds,
+      });
       return;
     }
 
     const existingReward = await pool.query(
-      'SELECT reward_code, claimed_at FROM Physical_Reward WHERE user_id = $1',
+      "SELECT reward_code, claimed_at FROM Physical_Reward WHERE user_id = $1",
       [userId]
     );
 
@@ -217,14 +224,14 @@ router.post('/claim', async (req: Request, res: Response): Promise<void> => {
 
     const rewardCode = crypto.randomUUID();
     await pool.query(
-      'INSERT INTO Physical_Reward (user_id, reward_code) VALUES ($1, $2)',
+      "INSERT INTO Physical_Reward (user_id, reward_code) VALUES ($1, $2)",
       [userId, rewardCode]
     );
 
     res.status(201).json({ alreadyClaimed: false, reward_code: rewardCode });
   } catch (err) {
-    console.error('Error claiming reward:', err);
-    res.status(500).json({ error: 'Database error' });
+    console.error("Error claiming reward:", err);
+    res.status(500).json({ error: "Database error" });
   }
 });
 
@@ -246,44 +253,47 @@ router.post('/claim', async (req: Request, res: Response): Promise<void> => {
  *       '200':
  *         description: HTML page with result
  */
-router.get('/verify/:code', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { code } = req.params;
+router.get(
+  "/verify/:code",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { code } = req.params;
 
-    const result = await pool.query(
-      `SELECT pr.reward_id, pr.claimed_at, tu.profile_name
+      const result = await pool.query(
+        `SELECT pr.reward_id, pr.claimed_at, tu.profile_name
        FROM Physical_Reward pr
        JOIN TurvaUser tu ON pr.user_id = tu.user_id
        WHERE pr.reward_code = $1`,
-      [code]
-    );
+        [code]
+      );
 
-    if (result.rows.length === 0) {
-      res.setHeader('Content-Type', 'text/html');
-      res.status(404).send(notFoundHtml());
-      return;
+      if (result.rows.length === 0) {
+        res.setHeader("Content-Type", "text/html");
+        res.status(404).send(notFoundHtml());
+        return;
+      }
+
+      const { reward_id, claimed_at, profile_name } = result.rows[0];
+
+      if (claimed_at) {
+        res.setHeader("Content-Type", "text/html");
+        res.status(200).send(alreadyClaimedHtml(profile_name, claimed_at));
+        return;
+      }
+
+      await pool.query(
+        "UPDATE Physical_Reward SET claimed_at = CURRENT_TIMESTAMP WHERE reward_id = $1",
+        [reward_id]
+      );
+
+      res.setHeader("Content-Type", "text/html");
+      res.status(200).send(successHtml(profile_name));
+    } catch (err) {
+      console.error("Error verifying reward:", err);
+      res.setHeader("Content-Type", "text/html");
+      res.status(500).send(notFoundHtml());
     }
-
-    const { reward_id, claimed_at, profile_name } = result.rows[0];
-
-    if (claimed_at) {
-      res.setHeader('Content-Type', 'text/html');
-      res.status(200).send(alreadyClaimedHtml(profile_name, claimed_at));
-      return;
-    }
-
-    await pool.query(
-      'UPDATE Physical_Reward SET claimed_at = CURRENT_TIMESTAMP WHERE reward_id = $1',
-      [reward_id]
-    );
-
-    res.setHeader('Content-Type', 'text/html');
-    res.status(200).send(successHtml(profile_name));
-  } catch (err) {
-    console.error('Error verifying reward:', err);
-    res.setHeader('Content-Type', 'text/html');
-    res.status(500).send(notFoundHtml());
   }
-});
+);
 
 export default router;

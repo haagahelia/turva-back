@@ -12,11 +12,11 @@ import physicalReward from "./physicalReward";
 const router: Router = Router();
 
 router.get("/ping", (_req: Request, res: Response) => {
-    res.send("pong")
+  res.send("pong");
 });
 
 router.get("/", (_req: Request, res: Response): void => {
-    res.json("Hello world!")
+  res.json("Hello world!");
 });
 
 // Define actual routes

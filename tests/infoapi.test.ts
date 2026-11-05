@@ -16,13 +16,13 @@ describe("Info API Integration Tests", () => {
   beforeAll(async () => {
     const res1 = await pool.query(
       "INSERT INTO info (title, content) VALUES ($1, $2) RETURNING id",
-      [TEST_TITLE_1, "Test Content 1"],
+      [TEST_TITLE_1, "Test Content 1"]
     );
     testId1 = res1.rows[0].id;
 
     const res2 = await pool.query(
       "INSERT INTO info (title, content) VALUES ($1, $2) RETURNING id",
-      [TEST_TITLE_2, "Test Content 2"],
+      [TEST_TITLE_2, "Test Content 2"]
     );
     testId2 = res2.rows[0].id;
   });
@@ -54,11 +54,13 @@ describe("Info API Integration Tests", () => {
 
     it("should return items with id, title, and content fields", async () => {
       const res = await request(app).get("/api/info");
-      res.body.forEach((item: { id: number; title: string; content: string }) => {
-        expect(item).toHaveProperty("id");
-        expect(item).toHaveProperty("title");
-        expect(item).toHaveProperty("content");
-      });
+      res.body.forEach(
+        (item: { id: number; title: string; content: string }) => {
+          expect(item).toHaveProperty("id");
+          expect(item).toHaveProperty("title");
+          expect(item).toHaveProperty("content");
+        }
+      );
     });
   });
 
@@ -165,7 +167,7 @@ describe("Info API Integration Tests", () => {
     beforeEach(async () => {
       const res = await pool.query(
         "INSERT INTO info (title, content) VALUES ($1, $2) RETURNING id",
-        ["Delete Test Title", "Delete Test Content"],
+        ["Delete Test Title", "Delete Test Content"]
       );
       deleteId = res.rows[0].id;
     });
@@ -219,7 +221,7 @@ describe("Info API Integration Tests", () => {
     beforeEach(async () => {
       const res = await pool.query(
         "INSERT INTO info (title, content) VALUES ($1, $2) RETURNING id",
-        ["Put Test Title", "Put Test Content"],
+        ["Put Test Title", "Put Test Content"]
       );
       putId = res.rows[0].id;
     });
@@ -313,9 +315,9 @@ describe("Info API Integration Tests", () => {
         .put(`/api/info/${putId}`)
         .send({ title: "Updated Title", content: "Updated Content" });
 
-        const getRes = await request(app).get(`/api/info/${testId1}`);
-        expect(getRes.body).toHaveProperty("title", TEST_TITLE_1);
-        expect(getRes.body).toHaveProperty("content", "Test Content 1");
+      const getRes = await request(app).get(`/api/info/${testId1}`);
+      expect(getRes.body).toHaveProperty("title", TEST_TITLE_1);
+      expect(getRes.body).toHaveProperty("content", "Test Content 1");
     });
 
     it("should return JSON content type", async () => {

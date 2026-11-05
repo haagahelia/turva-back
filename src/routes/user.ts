@@ -25,40 +25,43 @@ const router: Router = Router();
  *         description: Database query failed
  */
 
-router.get("/profile", async (req: Request, res: Response): Promise<Response | void> => {
-  try {
-    const decoded = verifyToken(req, res);
+router.get(
+  "/profile",
+  async (req: Request, res: Response): Promise<Response | void> => {
+    try {
+      const decoded = verifyToken(req, res);
 
-    if (!decoded || typeof decoded !== "object" || !('email' in decoded)) {
-      return;
-    }
+      if (!decoded || typeof decoded !== "object" || !("email" in decoded)) {
+        return;
+      }
 
-    const email = (decoded as { email: string }).email;
-    const query = `
+      const email = (decoded as { email: string }).email;
+      const query = `
       SELECT user_id, profile_name, profile_picture_url, email_address
       FROM TurvaUser
       WHERE email_address = $1
         AND deleted_at IS NULL
     `;
 
-    const result = await pool.query(query, [email]);
+      const result = await pool.query(query, [email]);
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "User not found" });
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const user = result.rows[0];
+
+      return res.status(200).json({
+        userId: user.user_id,
+        profileName: user.profile_name,
+        profilePictureUrl: user.profile_picture_url,
+        email: user.email_address,
+      });
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      return res.status(500).json({ error: "Database query failed" });
     }
-
-    const user = result.rows[0];
-
-    return res.status(200).json({
-      userId: user.user_id,
-      profileName: user.profile_name,
-      profilePictureUrl: user.profile_picture_url,
-      email: user.email_address,
-    });
-  } catch (err) {
-    console.error("Error fetching profile:", err);
-    return res.status(500).json({ error: "Database query failed" });
   }
-});
+);
 
 export default router;

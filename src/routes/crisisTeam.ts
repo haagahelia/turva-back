@@ -3,7 +3,7 @@ import { pool } from "../config/db";
 
 const router: Router = Router();
 
-/** 
+/**
  * @openapi
  * /api/crisis-team:
  *   get:
@@ -16,19 +16,21 @@ const router: Router = Router();
  *         description: OK
  *       '500':
  *         description: Database query failed
-*/
+ */
 
 router.get("/", async (_req: Request, res: Response): Promise<void> => {
-    try {
-        const result = await pool.query("SELECT * FROM CrisisTeam WHERE deleted_at IS NULL ORDER BY order_number;");
-        res.json(result.rows);
-    } catch (err) {
-        console.error("Error in query:", err);
-        res.status(500).json({ error: "Database query failed" });
-    }
+  try {
+    const result = await pool.query(
+      "SELECT * FROM CrisisTeam WHERE deleted_at IS NULL ORDER BY order_number;"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error in query:", err);
+    res.status(500).json({ error: "Database query failed" });
+  }
 });
 
-/** 
+/**
  * @openapi
  * /api/crisis-team/{id}:
  *   get:
@@ -52,33 +54,33 @@ router.get("/", async (_req: Request, res: Response): Promise<void> => {
  *         description: ID not found
  *       '500':
  *         description: Database query failed
-*/
+ */
 
 router.get("/:id", async (req: Request, res: Response): Promise<void> => {
-    try {
-        const id = Number(req.params.id);
+  try {
+    const id = Number(req.params.id);
 
-        if (!Number.isInteger(id) || id <= 0) {
-            res.status(400).json({ error: "Invalid ID format" });
-            return;
-        }
-
-        const result = await pool.query(
-            "SELECT * FROM CrisisTeam WHERE contact_id = $1 AND deleted_at IS NULL",
-            [id]
-        );
-        if (result.rowCount === 0) {
-            res.status(404).json({ error: "ID not found" });
-            return;
-        };
-        res.json(result.rows[0]);
-    } catch (err) {
-        console.error("Error in query:", err);
-        res.status(500).json({ error: "Database query failed" });
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "Invalid ID format" });
+      return;
     }
+
+    const result = await pool.query(
+      "SELECT * FROM CrisisTeam WHERE contact_id = $1 AND deleted_at IS NULL",
+      [id]
+    );
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: "ID not found" });
+      return;
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error in query:", err);
+    res.status(500).json({ error: "Database query failed" });
+  }
 });
 
-/** 
+/**
  * @openapi
  * /api/crisis-team/{id}:
  *   delete:
@@ -102,33 +104,33 @@ router.get("/:id", async (req: Request, res: Response): Promise<void> => {
  *         description: ID not found
  *       '500':
  *         description: Delete failed
-*/
+ */
 
 router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
-    try {
-        const id = Number(req.params.id);
+  try {
+    const id = Number(req.params.id);
 
-        if (!Number.isInteger(id) || id <= 0) {
-            res.status(400).json({ error: "Invalid ID format" });
-            return;
-        }
-
-        const result = await pool.query(
-            "UPDATE CrisisTeam SET deleted_at = CURRENT_TIMESTAMP WHERE contact_id = $1 AND deleted_at IS NULL RETURNING *",
-            [id]
-        );
-        if (result.rowCount === 0) {
-            res.status(404).json({ error: "ID not found" });
-            return;
-        };
-        res.json({ message: "Deleted successfully", deleted: result.rows[0] });
-    } catch (err) {
-        console.error("Delete failed", err);
-        res.status(500).json({ error: "Delete failed" });
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "Invalid ID format" });
+      return;
     }
+
+    const result = await pool.query(
+      "UPDATE CrisisTeam SET deleted_at = CURRENT_TIMESTAMP WHERE contact_id = $1 AND deleted_at IS NULL RETURNING *",
+      [id]
+    );
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: "ID not found" });
+      return;
+    }
+    res.json({ message: "Deleted successfully", deleted: result.rows[0] });
+  } catch (err) {
+    console.error("Delete failed", err);
+    res.status(500).json({ error: "Delete failed" });
+  }
 });
 
-/** 
+/**
  * @openapi
  * /api/crisis-team:
  *   post:
@@ -176,29 +178,40 @@ router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
  *         description: Missing required fields
  *       '500':
  *         description: Insert failed
-*/
+ */
 
 router.post("/", async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { organization_id, name_fi, name_en, role_fi, role_en, phone } = req.body;
-        if (!organization_id || !name_fi || !name_en || !role_fi || !role_en || !phone) {
-            res.status(400).json({ error: "organization_id, name_fi, name_en, role_fi, role_en, and phone are required" });
-            return;
-        };
-        const result = await pool.query(
-            `INSERT INTO CrisisTeam (organization_id, name_fi, name_en, role_fi, role_en, phone, order_number) 
+  try {
+    const { organization_id, name_fi, name_en, role_fi, role_en, phone } =
+      req.body;
+    if (
+      !organization_id ||
+      !name_fi ||
+      !name_en ||
+      !role_fi ||
+      !role_en ||
+      !phone
+    ) {
+      res.status(400).json({
+        error:
+          "organization_id, name_fi, name_en, role_fi, role_en, and phone are required",
+      });
+      return;
+    }
+    const result = await pool.query(
+      `INSERT INTO CrisisTeam (organization_id, name_fi, name_en, role_fi, role_en, phone, order_number) 
              VALUES ($1, $2, $3, $4, $5, $6, (SELECT COALESCE(MAX(order_number), 0) + 1 FROM CrisisTeam)) 
              RETURNING *`,
-            [organization_id, name_fi, name_en, role_fi, role_en, phone]
-        );
-        res.status(201).json(result.rows[0]);
-    } catch (err) {
-        console.error("Insert failed", err);
-        res.status(500).json({ error: "Insert failed" });
-    }
+      [organization_id, name_fi, name_en, role_fi, role_en, phone]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Insert failed", err);
+    res.status(500).json({ error: "Insert failed" });
+  }
 });
 
-/** 
+/**
  * @openapi
  * /api/crisis-team/{id}:
  *   put:
@@ -245,35 +258,37 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
  *         description: ID not found
  *       '500':
  *         description: Update failed
-*/
+ */
 
 router.put("/:id", async (req: Request, res: Response): Promise<void> => {
-    try {
-        const id = Number(req.params.id);
+  try {
+    const id = Number(req.params.id);
 
-        if (!Number.isInteger(id) || id <= 0) {
-            res.status(400).json({ error: "Invalid ID format" });
-            return;
-        }
-
-        const { name_fi, name_en, role_fi, role_en, phone } = req.body;
-        if (!name_fi || !name_en || !role_fi || !role_en || !phone) {
-            res.status(400).json({ error: "name_fi, name_en, role_fi, role_en, and phone are required" });
-            return;
-        };
-        const result = await pool.query(
-            "UPDATE CrisisTeam SET name_fi = $1, name_en = $2, role_fi = $3, role_en = $4, phone = $5 WHERE contact_id = $6 AND deleted_at IS NULL RETURNING *",
-            [name_fi, name_en, role_fi, role_en, phone, id]
-        );
-        if (result.rowCount === 0) {
-            res.status(404).json({ error: "ID not found" });
-            return;
-        };
-        res.json({ message: "Updated successfully", updated: result.rows[0] });
-    } catch (err) {
-        console.error("Update failed:", err);
-        res.status(500).json({ error: "Update failed" });
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: "Invalid ID format" });
+      return;
     }
+
+    const { name_fi, name_en, role_fi, role_en, phone } = req.body;
+    if (!name_fi || !name_en || !role_fi || !role_en || !phone) {
+      res.status(400).json({
+        error: "name_fi, name_en, role_fi, role_en, and phone are required",
+      });
+      return;
+    }
+    const result = await pool.query(
+      "UPDATE CrisisTeam SET name_fi = $1, name_en = $2, role_fi = $3, role_en = $4, phone = $5 WHERE contact_id = $6 AND deleted_at IS NULL RETURNING *",
+      [name_fi, name_en, role_fi, role_en, phone, id]
+    );
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: "ID not found" });
+      return;
+    }
+    res.json({ message: "Updated successfully", updated: result.rows[0] });
+  } catch (err) {
+    console.error("Update failed:", err);
+    res.status(500).json({ error: "Update failed" });
+  }
 });
 
 export default router;

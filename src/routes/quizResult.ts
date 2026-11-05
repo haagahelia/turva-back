@@ -1,6 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { pool } from '../config/db';
-import { verifyToken } from '../utils/verification';
+import { Router, Request, Response } from "express";
+import { pool } from "../config/db";
+import { verifyToken } from "../utils/verification";
 
 const router: Router = Router();
 
@@ -44,26 +44,31 @@ const router: Router = Router();
  *       '500':
  *         description: Database error
  */
-router.post('/', async (req: Request, res: Response): Promise<void> => {
+router.post("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const { quiz_id, correct_answers, time_spent_seconds } = req.body;
 
     const decoded = verifyToken(req, res);
-    if (!decoded || typeof decoded !== 'object' || !('email' in decoded)) return;
+    if (!decoded || typeof decoded !== "object" || !("email" in decoded))
+      return;
     const email = (decoded as { email: string }).email;
-    
-    if (!quiz_id || correct_answers === undefined || time_spent_seconds === undefined) {
-      res.status(400).json({ error: 'Missing required fields' });
+
+    if (
+      !quiz_id ||
+      correct_answers === undefined ||
+      time_spent_seconds === undefined
+    ) {
+      res.status(400).json({ error: "Missing required fields" });
       return;
     }
 
     const userResult = await pool.query(
-      'SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL',
+      "SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL",
       [email]
     );
 
     if (userResult.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: "User not found" });
       return;
     }
 
@@ -81,12 +86,12 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     // Get world_id for the quiz
     const quizResult = await pool.query(
-      'SELECT world_id FROM Quiz WHERE quiz_id = $1',
+      "SELECT world_id FROM Quiz WHERE quiz_id = $1",
       [quiz_id]
     );
 
     if (quizResult.rows.length === 0) {
-      res.status(404).json({ error: 'Quiz not found' });
+      res.status(404).json({ error: "Quiz not found" });
       return;
     }
 
@@ -118,10 +123,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       bonusAwarded = (bonusResult.rowCount ?? 0) > 0;
     }
 
-    res.status(201).json({ message: 'Result saved successfully', worldCompleted, bonusAwarded });
+    res.status(201).json({
+      message: "Result saved successfully",
+      worldCompleted,
+      bonusAwarded,
+    });
   } catch (err) {
-    console.error('Error saving quiz result:', err);
-    res.status(500).json({ error: 'Database error' });
+    console.error("Error saving quiz result:", err);
+    res.status(500).json({ error: "Database error" });
   }
 });
 
@@ -159,34 +168,43 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
  *       '500':
  *         description: Database error
  */
-router.get('/user/:user_id/stats', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { user_id } = req.params;
+router.get(
+  "/user/:user_id/stats",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { user_id } = req.params;
 
-    if (typeof user_id !== 'string' || user_id.trim() === '' || Number.isNaN(Number(user_id))) {
-      res.status(400).json({ error: 'Invalid user ID' });
-      return;
-    }
+      if (
+        typeof user_id !== "string" ||
+        user_id.trim() === "" ||
+        Number.isNaN(Number(user_id))
+      ) {
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
+      }
 
-    const result = await pool.query(
-      `SELECT
+      const result = await pool.query(
+        `SELECT
          COALESCE(SUM(score), 0) AS points,
          COALESCE(SUM(time_spent_seconds), 0) AS total_time_seconds
        FROM User_Completed_Quiz
        WHERE user_id = $1`,
-      [user_id]
-    );
+        [user_id]
+      );
 
-    const stats = result.rows[0];
-    res.status(200).json({
-      points: parseInt(stats.points, 10),
-      totalTimeSeconds: parseInt(stats.total_time_seconds, 10),
-    });
-  } catch (err) {
-    console.error('Error retrieving quiz statistics:', err);
-    res.status(500).json({ error: 'Database error while retrieving statistics' });
+      const stats = result.rows[0];
+      res.status(200).json({
+        points: parseInt(stats.points, 10),
+        totalTimeSeconds: parseInt(stats.total_time_seconds, 10),
+      });
+    } catch (err) {
+      console.error("Error retrieving quiz statistics:", err);
+      res
+        .status(500)
+        .json({ error: "Database error while retrieving statistics" });
+    }
   }
-});
+);
 
 /**
  * @openapi
@@ -231,17 +249,23 @@ router.get('/user/:user_id/stats', async (req: Request, res: Response): Promise<
  *       500:
  *         description: Database error
  */
-router.get('/user/:user_id/history', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { user_id } = req.params;
+router.get(
+  "/user/:user_id/history",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { user_id } = req.params;
 
-    if (typeof user_id !== 'string' || user_id.trim() === '' || Number.isNaN(Number(user_id))) {
-      res.status(400).json({ error: 'Invalid user ID' });
-      return;
-    }
+      if (
+        typeof user_id !== "string" ||
+        user_id.trim() === "" ||
+        Number.isNaN(Number(user_id))
+      ) {
+        res.status(400).json({ error: "Invalid user ID" });
+        return;
+      }
 
-    const result = await pool.query(
-      `SELECT 
+      const result = await pool.query(
+        `SELECT 
          uc.quiz_id,
          q.quiz_name_fi,
          q.quiz_name_en,
@@ -252,14 +276,15 @@ router.get('/user/:user_id/history', async (req: Request, res: Response): Promis
        JOIN Quiz q ON uc.quiz_id = q.quiz_id
        WHERE uc.user_id = $1
        ORDER BY uc.completed_at DESC`,
-      [user_id]
-    );
+        [user_id]
+      );
 
-    res.status(200).json(result.rows);
-  } catch (err) {
-    console.error('Error fetching quiz history:', err);
-    res.status(500).json({ error: 'Database error while fetching history' });
+      res.status(200).json(result.rows);
+    } catch (err) {
+      console.error("Error fetching quiz history:", err);
+      res.status(500).json({ error: "Database error while fetching history" });
+    }
   }
-});
+);
 
 export default router;

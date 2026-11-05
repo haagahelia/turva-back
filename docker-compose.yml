@@ -1,9 +1,9 @@
 services:
   app:
-  # set container name
+    # set container name
     container_name: turva-backend
 
-  # build image from dockerfile in the current directory
+    # build image from dockerfile in the current directory
     build:
       context: .
       dockerfile: Dockerfile
@@ -12,7 +12,7 @@ services:
         condition: service_healthy
         restart: true
 
-    # map container port to host 
+    # map container port to host
     ports:
       - "3000:3000"
     env_file:
@@ -35,6 +35,5 @@ services:
       - ./sql:/docker-entrypoint-initdb.d
 
     # store `POSTGRES_PASSWORD` in .env
-    env_file: 
-    - ".env"
-    
+    env_file:
+      - ".env"
