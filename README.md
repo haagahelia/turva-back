@@ -49,3 +49,16 @@ The Husky pre-commit hook formats staged JavaScript, TypeScript, JSON, Markdown,
 ### Tech Stack
 
 Developed with NestJS, TypeScript, and Node.js. The API is served under `/api`.
+
+### Deployment
+
+The CD workflow builds and deploys the `main` and `feature/csc-rahti-cd` branches
+to CSC Rahti. The feature branch trigger is intended for pipeline debugging and
+testing. Configure the GitHub Actions secrets `CSC_PROJECT` and `CSC_TOKEN` for
+the target Rahti project and its access token.
+
+Before the first deployment, create a Rahti secret named `turva-back-secrets`
+in that project. It must contain `POSTGRES_USER`, `POSTGRES_PASSWORD`,
+`POSTGRES_DB`, `POSTGRES_HOST`, `JWT_SECRET`, and `TEST_DOMAIN`. The database
+must be reachable from the Rahti project. Swagger is disabled in the deployed
+container.
