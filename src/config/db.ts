@@ -1,5 +1,9 @@
 import pkg from "pg";
+import dotenv from "dotenv";
+
 const { Pool } = pkg;
+
+dotenv.config();
 
 const { POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST } =
   process.env;

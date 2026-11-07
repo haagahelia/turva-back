@@ -1,11 +1,13 @@
-import { INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { version } from "../package.json";
 import { AppModule } from "./app.module";
 import { corsOptions } from "./config/cors";
-import { version } from "../package.json";
+import { connectDB } from "./config/db";
 
-const createApp = async (): Promise<INestApplication> => {
+async function bootstrap() {
+  await connectDB();
+
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix("api");
   app.enableCors(corsOptions);
@@ -20,14 +22,10 @@ const createApp = async (): Promise<INestApplication> => {
       )
       .addSecurityRequirements("bearerAuth")
       .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup("docs", app, document, {
-      jsonDocumentUrl: "docs.json",
-    });
+    const documentFactory = () => SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup("docs", app, documentFactory);
   }
 
-  await app.init();
-  return app;
-};
-
-export default createApp;
+  await app.listen(process.env.PORT ?? 3000);
+}
+void bootstrap();

@@ -1,5 +1,6 @@
 # Built application files
 build/
+dist/
 
 # Logs
 logs
