@@ -21,7 +21,6 @@ jobs:
     environment: dev
     env:
       CSC_PROJECT: ${{ secrets.CSC_PROJECT }}
-      CSC_TOKEN: ${{ secrets.CSC_TOKEN }}
       COMMIT_SHA: ${{ github.sha }}
 
     steps:
@@ -49,6 +48,8 @@ jobs:
           sudo mv oc kubectl /usr/local/bin/
 
       - name: Log in to CSC Rahti
+        env:
+          CSC_TOKEN: ${{ secrets.CSC_TOKEN }}
         run: |
           oc login --token="$CSC_TOKEN" --server=https://api.2.rahti.csc.fi:6443
           oc project "$CSC_PROJECT"
@@ -60,6 +61,17 @@ jobs:
           docker build --target deploy --tag "$IMAGE" .
           oc whoami -t | docker login --username unused --password-stdin image-registry.apps.2.rahti.csc.fi
           docker push "$IMAGE"
+
+      - name: Apply runtime secrets from GitHub Actions
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          TEST_DOMAIN: ${{ secrets.TEST_DOMAIN }}
+        run: |
+          envsubst < csc/runtime_secret_template.yml | oc apply -f -
 
       - name: Apply deployment
         run: |
