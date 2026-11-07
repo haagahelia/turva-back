@@ -21,6 +21,8 @@ jobs:
     env:
       CSC_PROJECT: ${{ secrets.CSC_PROJECT }}
       COMMIT_SHA: ${{ github.sha }}
+      ENABLE_SWAGGER: ${{ vars.ENABLE_SWAGGER }}
+      TEST_DOMAIN: ${{ vars.TEST_DOMAIN }}
 
     steps:
       - name: Check out repository
@@ -92,7 +94,6 @@ jobs:
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          TEST_DOMAIN: ${{ secrets.TEST_DOMAIN }}
         run: |
           envsubst < csc/runtime_secret_template.yml | oc apply -f -
 
