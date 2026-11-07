@@ -29,7 +29,7 @@ spec:
             - name: PORT
               value: "3000"
             - name: ENABLE_SWAGGER
-              value: "false"
+              value: ${ENABLE_SWAGGER}
           envFrom:
             - secretRef:
                 name: turva-back-secrets
