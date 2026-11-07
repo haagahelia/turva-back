@@ -66,3 +66,18 @@ project. Swagger is disabled in the deployed container.
 
 The workflow caches npm packages, the version-pinned Rahti CLI, and Docker
 build layers between runs.
+
+### Development test database
+
+The separate **Deploy test database** workflow is run on demand from the
+Actions tab (`workflow_dispatch`). It deploys a PostgreSQL service named
+`turva-test-db` in the same Rahti project, stores database files on a 1 GiB
+persistent volume, and initializes an empty database with `sql/init.sql`.
+It uses `CSC_PROJECT`, `CSC_TOKEN`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and
+`POSTGRES_DB` from the `dev` GitHub Actions environment.
+
+To connect the backend to this database, set the `POSTGRES_HOST` secret in the
+`dev` environment to `turva-test-db`, then run the regular CD workflow so the
+backend deployment receives the updated secret. The initialization script is
+run only when the database schema is absent; rerunning the workflow does not
+reset or reseed existing database data.
