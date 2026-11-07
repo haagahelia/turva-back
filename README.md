@@ -37,11 +37,14 @@ Backend API server for the TurvaOppi
 
 ### Available Scripts
 
-- `npm run dev` - Run the server in development mode
-- `npm run build` - Compile the server to `build/`
-- `npm start` - Run the compiled server
+- `npm run dev` or `npm run start:dev` - Run the NestJS CLI in watch mode
+- `npm run build` - Build the application with the NestJS CLI to `dist/`
+- `npm run start` - Build and start the application
+- `npm run start:prod` - Run the compiled application
 - `npm test` - Run Jest tests
 - `npm run lint` - Run ESLint
+
+The Husky pre-commit hook formats staged JavaScript, TypeScript, JSON, Markdown, and YAML files with Prettier.
 
 ### Tech Stack
 

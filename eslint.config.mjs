@@ -17,7 +17,7 @@ export default tseslint.config({
   plugins: {
     "@stylistic": stylistic,
   },
-  ignores: ["build/*"],
+  ignores: ["build/*", "dist/**"],
   rules: {
     "@stylistic/semi": "off",
 

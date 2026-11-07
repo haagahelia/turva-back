@@ -1,21 +1,17 @@
 {
-  "ts-node": {
-    "require": ["tsconfig-paths/register"]
-  },
   "compilerOptions": {
     "target": "es2024",
-    "module": "commonjs",
-    "outDir": "./build/",
+    "module": "Node16",
+    "outDir": "./dist",
     "rootDir": ".",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "isolatedModules": true,
     "resolveJsonModule": true,
-    /* Polut ja moduulit */
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
-    "moduleResolution": "node",
+    "moduleResolution": "Node16",
     /* Tyypitykset */
     "strict": true,
     "esModuleInterop": true,
@@ -28,5 +24,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*", "tests/**/*", "jest.config.ts", "jest.setup.ts"],
-  "exclude": ["node_modules", "build"]
+  "exclude": ["node_modules", "build", "dist"]
 }

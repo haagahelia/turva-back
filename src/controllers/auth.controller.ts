@@ -9,12 +9,12 @@ import {
 } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { generatePin } from "@/utils/pinGenerator";
+import { generatePin } from "../utils/pinGenerator";
 import bcrypt from "bcryptjs";
-import { validateEmail, verifyPin, verifyUser } from "@/utils/verification";
-import { pool } from "@/config/db";
-import { generateToken } from "@/utils/tokenGenerator";
-import { sendEmail } from "@/utils/emailer";
+import { validateEmail, verifyPin, verifyUser } from "../utils/verification";
+import { pool } from "../config/db";
+import { generateToken } from "../utils/tokenGenerator";
+import { sendEmail } from "../utils/emailer";
 
 // TODO?: Add email confirmation before completing register??
 @Controller("auth")

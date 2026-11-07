@@ -36,7 +36,7 @@ This guide is a handoff for developers who need to continue working on the Turva
 
 **Technology stack**
 
-- Node.js, TypeScript, Express
+- Node.js, TypeScript, NestJS (Express platform)
 - PostgreSQL via `pg`
 - JWT auth via `jsonwebtoken`
 - OTP hashing via `bcryptjs`
@@ -68,7 +68,8 @@ Request
 
 **Entry point**
 
-- [src/index.ts](src/index.ts) loads env vars, connects to DB, creates the app, and starts the server on port `3000`.
+- [src/main.ts](src/main.ts) loads env vars, configures the NestJS application, connects to DB, and starts the server on port `3000`.
+- Nest CLI configuration is in [nest-cli.json](nest-cli.json); run `npm run start:dev` for watch mode and `npm run build` to compile to `dist/`.
 
 **Swagger**
 
@@ -207,8 +208,8 @@ Controller implementations are in [src/controllers](src/controllers).
 
 ## 11. File Map (Key Files)
 
-- Entry point: [src/index.ts](src/index.ts)
-- App setup: [src/app.ts](src/app.ts)
+- Entry point: [src/main.ts](src/main.ts)
+- App setup and entry point: [src/main.ts](src/main.ts)
 - Status controller: [src/controllers/status.controller.ts](src/controllers/status.controller.ts)
 - Auth controller: [src/controllers/auth.controller.ts](src/controllers/auth.controller.ts)
 - Info controller: [src/controllers/info.controller.ts](src/controllers/info.controller.ts)
