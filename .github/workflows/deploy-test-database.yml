@@ -1,6 +1,10 @@
 name: Deploy test database
 
 on:
+  push:
+    branches:
+      - main
+      - feature/csc-rahti-cd
   workflow_dispatch:
 
 permissions:
