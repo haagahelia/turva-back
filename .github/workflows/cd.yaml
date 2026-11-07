@@ -1,0 +1,45 @@
+name: CD pipeline
+concurrency:
+  group: turva-back-cd
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build & deploy to CSC Rahti
+    runs-on: ubuntu-latest
+    env:
+      COMMIT_SHA: ${{ github.sha }}
+      CSC_PROJECT: ${{ secrets.CSC_PROJECT }}
+      CSC_TOKEN: ${{ secrets.CSC_TOKEN }}
+
+    steps:
+      - name: Install CSC Rahti CLI
+        run: |
+          wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.15.9/openshift-client-linux-4.15.9.tar.gz
+          tar -xzf openshift-client-linux-4.15.9.tar.gz
+          mv oc kubectl /usr/local/bin/
+          rm openshift-client-linux-4.15.9.tar.gz README.md
+
+      - name: Setup CSC Rahti environment
+        run: |
+          oc login --token=$CSC_TOKEN --server=https://api.2.rahti.csc.fi:6443
+          oc project $CSC_PROJECT
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build and publish Docker image to CSC Rahti Image Registry
+        run: |
+          docker build --target deploy -t image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/turva-back:$COMMIT_SHA .
+          docker login -p $(oc whoami -t) -u unused image-registry.apps.2.rahti.csc.fi
+          docker push image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/turva-back:$COMMIT_SHA
+
+      - name: Deploy to CSC Rahti
+        run: |
+          envsubst < ./csc/deployment_template.yml > deployment.yml
+          oc apply -f deployment.yml
