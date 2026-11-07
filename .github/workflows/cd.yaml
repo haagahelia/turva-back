@@ -41,11 +41,27 @@ jobs:
           npm run lint
           npm run build
 
+      - name: Cache CSC Rahti CLI
+        id: cache-oc
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/oc
+          key: openshift-cli-4.15.9-linux-amd64
+
       - name: Install CSC Rahti CLI
+        if: steps.cache-oc.outputs.cache-hit != 'true'
         run: |
-          wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.15.9/openshift-client-linux-4.15.9.tar.gz
-          tar -xzf openshift-client-linux-4.15.9.tar.gz
-          sudo mv oc kubectl /usr/local/bin/
+          archive="$RUNNER_TEMP/openshift-client-linux-4.15.9.tar.gz"
+          wget -O "$archive" https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.15.9/openshift-client-linux-4.15.9.tar.gz
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          mkdir -p "$HOME/.local/bin"
+          mv "$RUNNER_TEMP/oc" "$HOME/.local/bin/oc"
+
+      - name: Add CSC Rahti CLI to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify CSC Rahti CLI
+        run: oc version --client
 
       - name: Log in to CSC Rahti
         env:
@@ -55,12 +71,20 @@ jobs:
           oc project "$CSC_PROJECT"
           oc create imagestream turva-back --dry-run=client -o yaml | oc apply -f -
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and publish Docker image
         run: |
           IMAGE="image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/turva-back:$COMMIT_SHA"
-          docker build --target deploy --tag "$IMAGE" .
           oc whoami -t | docker login --username unused --password-stdin image-registry.apps.2.rahti.csc.fi
-          docker push "$IMAGE"
+          docker buildx build \
+            --target deploy \
+            --tag "$IMAGE" \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --push \
+            .
 
       - name: Apply runtime secrets from GitHub Actions
         env:

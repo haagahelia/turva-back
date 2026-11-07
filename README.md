@@ -63,3 +63,6 @@ Add these additional GitHub Actions secrets to the `dev` environment:
 values to create or update the `turva-back-secrets` secret in Rahti; no manual
 Rahti secret setup is needed. The database must be reachable from the Rahti
 project. Swagger is disabled in the deployed container.
+
+The workflow caches npm packages, the version-pinned Rahti CLI, and Docker
+build layers between runs.
