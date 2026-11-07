@@ -64,4 +64,4 @@ jobs:
       - name: Apply deployment
         run: |
           envsubst '${CSC_PROJECT} ${COMMIT_SHA}' < csc/deployment_template.yml | oc apply -f -
-          oc rollout status deployment/turva-back --timeout=180s
+          oc rollout status deployment/turva-back --timeout=300s
