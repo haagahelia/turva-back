@@ -7,13 +7,13 @@ on:
   push:
     branches:
       - main
+      - feature/create-cd-pipeline
 
 jobs:
   deploy:
     name: Build & deploy to CSC Rahti
     runs-on: ubuntu-latest
     env:
-      COMMIT_SHA: ${{ github.sha }}
       CSC_PROJECT: ${{ secrets.CSC_PROJECT }}
       CSC_TOKEN: ${{ secrets.CSC_TOKEN }}
 
@@ -35,9 +35,11 @@ jobs:
 
       - name: Build and publish Docker image to CSC Rahti Image Registry
         run: |
-          docker build --target deploy -t image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/turva-back:$COMMIT_SHA .
+          export TAG=$(git rev-parse --short HEAD)
+          echo "Building and publishing Docker image with tag: $TAG"
+          docker build --target deploy -t image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/turva-back:$TAG .
           docker login -p $(oc whoami -t) -u unused image-registry.apps.2.rahti.csc.fi
-          docker push image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/turva-back:$COMMIT_SHA
+          docker push image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/turva-back:$TAG
 
       - name: Deploy to CSC Rahti
         run: |

@@ -22,7 +22,7 @@ COPY . .
 CMD ["npm", "run", "dev"]
 
 FROM base AS predeploy
-RUN npm ci --production
+RUN npm install
 COPY . .
 RUN npm run build
 
