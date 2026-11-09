@@ -2,14 +2,18 @@
   "name": "turva-back",
   "version": "1.0.0",
   "description": "Backend api server for the TurvaOppi",
-  "main": "build/src/index.js",
+  "main": "dist/main.js",
   "scripts": {
     "test": "dotenv -e .env.test -- jest --runInBand",
     "lint": "eslint .",
-    "dev": "ts-node-dev --poll -r tsconfig-paths/register src/index.ts",
-    "build": "tsc",
-    "start": "TS_NODE_BASEURL=./build node -r tsconfig-paths/register build/src/index.js",
-    "format": "prettier --write ."
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main.js",
+    "format": "prettier --write .",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
@@ -23,10 +27,15 @@
     "url": "https://github.com/haagahelia/turva-back/issues"
   },
   "homepage": "https://github.com/haagahelia/turva-back#readme",
+  "lint-staged": {
+    "*.{js,cjs,mjs,ts,tsx,jsx,json,md,yml,yaml}": "prettier --write"
+  },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
@@ -37,11 +46,13 @@
     "esbuild": "^0.27.0",
     "eslint": "^9.34.0",
     "globals": "^16.3.0",
+    "husky": "^9.1.7",
     "jest": "^30.2.0",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",
+    "supertest": "^7.3.2",
     "ts-jest": "^29.4.5",
-    "ts-node-dev": "^2.0.0",
-    "tsconfig-paths": "^4.2.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.42.0"
   },
@@ -50,16 +61,12 @@
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
     "@nestjs/swagger": "^11.4.7",
-    "@stylistic/eslint-plugin": "^5.6.1",
     "bcryptjs": "^3.0.2",
-    "cors": "^2.8.5",
     "dotenv": "^17.2.2",
-    "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.6",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2",
-    "supertest": "^7.1.4"
+    "rxjs": "^7.8.2"
   }
 }

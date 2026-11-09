@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { pool } from "@/config/db";
+import { pool } from "../config/db";
 import jwt, { TokenExpiredError } from "jsonwebtoken";
 import { JwtPayload } from "jsonwebtoken";
 import { UnauthorizedException } from "@nestjs/common";

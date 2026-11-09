@@ -1,4 +1,4 @@
-import createApp from "../src/app";
+import { createApp } from "./create-app";
 import request from "supertest";
 import { INestApplication } from "@nestjs/common";
 import { pool } from "@/config/db";

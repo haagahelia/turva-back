@@ -13,8 +13,8 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { pool } from "@/config/db";
-import { verifyToken } from "@/utils/verification";
+import { pool } from "../config/db";
+import { verifyToken } from "../utils/verification";
 
 @Controller("user")
 @ApiTags("User")
