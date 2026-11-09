@@ -1,4 +1,5 @@
 import {
+  Headers,
   BadRequestException,
   Body,
   Controller,
@@ -13,6 +14,7 @@ import {
   Put,
 } from "@nestjs/common";
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -21,6 +23,7 @@ import {
 } from "@nestjs/swagger";
 
 import { pool } from "../config/db";
+import { verifyAdminToken } from "@/utils/verification";
 
 @Controller("quiz")
 @ApiTags("Quiz")
@@ -30,6 +33,7 @@ export class QuizController {
     summary: "Returns all quizzes",
     description: "Returns all quizzes in JSON format",
   })
+
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({ status: 500, description: "Database query failed" })
   async getAllQuizzes() {
@@ -51,6 +55,7 @@ export class QuizController {
     description:
       "Searches a specific quiz by its ID and returns it in JSON format",
   })
+
   @ApiParam({ name: "id", type: Number })
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({ status: 400, description: "Invalid ID format" })
@@ -92,6 +97,7 @@ export class QuizController {
     type: Number,
     description: "Numeric ID of the world whose quizzes you want",
   })
+
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({ status: 400, description: "Invalid ID format" })
   @ApiResponse({ status: 404, description: "ID not found" })
@@ -128,6 +134,8 @@ export class QuizController {
     summary: "Add new quiz to db",
     description: "Insert into quiz",
   })
+
+  //still have quiz_name
   @ApiBody({
     description: "Quiz world, name, content, and order",
     required: true,
@@ -141,30 +149,44 @@ export class QuizController {
       },
     },
   })
+
+  // ADD AUTHORIZATION
   @ApiResponse({ status: 201, description: "Created" })
   @ApiResponse({
     status: 400,
     description: "world_id, quiz_name or order_number missing",
   })
   @ApiResponse({ status: 500, description: "Insert failed" })
-  async createQuiz(@Body() body: Record<string, any>) {
+  @ApiBearerAuth("bearerAuth")
+  async createQuiz(
+          @Body() body: Record<string, any>,
+          @Headers("authorization") authorization?: string
+        ) {
     try {
-      const { world_id, quiz_name, quiz_content, order_number } = body;
-      if (
-        !world_id ||
-        !quiz_name ||
-        !order_number ||
-        world_id < 0 ||
-        order_number < 0
-      ) {
-        throw new BadRequestException({
-          error: "World id, quiz name or order number missing",
-        });
-      }
+      await verifyAdminToken(authorization);
+
+      // CORRECTION OF DATA-SHAPE ISSUE, NAME MISMATCHED
+      const {
+        world_id,
+        quiz_name_fi,
+        quiz_name_en,
+        quiz_content,
+        order_number } = body;
+
       const result = await pool.query(
-        "INSERT INTO quiz (world_id, quiz_name, quiz_content, order_number) VALUES ($1, $2, $3, $4) RETURNING *",
-        [world_id, quiz_name, JSON.stringify(quiz_content), order_number]
+        `INSERT INTO Quiz
+          (world_id, quiz_name_fi, quiz_name_en, quiz_content, order_number)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *`,
+        [
+          world_id,
+          quiz_name_fi,
+          quiz_name_en,
+          JSON.stringify(quiz_content ?? {}),
+          order_number,
+        ]
       );
+
       return result.rows[0];
     } catch (err) {
       if (err instanceof HttpException) throw err;
@@ -179,6 +201,9 @@ export class QuizController {
     summary: "Update Quiz content",
     description: "Update quiz content for quiz where ID matches",
   })
+
+  // ADD AUTHORIZATION
+  @ApiBearerAuth("bearerAuth")
   @ApiParam({ name: "id", type: Number })
   @ApiBody({
     description: "quiz content JSON",
@@ -189,8 +214,12 @@ export class QuizController {
   @ApiResponse({ status: 400, description: "Invalid ID format" })
   @ApiResponse({ status: 404, description: "ID not found" })
   @ApiResponse({ status: 500, description: "Update failed" })
-  async updateQuiz(@Param("id") id: string, @Body() body: Record<string, any>) {
+  async updateQuiz(
+      @Param("id") id: string, @Body() body: Record<string, any>,
+      @Headers("authorization") authorization?: string
+    ) {
     try {
+      await verifyAdminToken(authorization);
       if (
         typeof id !== "string" ||
         id.trim() === "" ||
@@ -205,6 +234,7 @@ export class QuizController {
         });
       }
 
+      // THIS CODE ALLOWS ADMINS TO UPDATE ONLY QUIZ_CONTENT
       const result = await pool.query(
         "UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *",
         [JSON.stringify(body), id]
@@ -220,6 +250,7 @@ export class QuizController {
     }
   }
 
+  @ApiBearerAuth("bearerAuth")
   @Delete("/:id")
   @ApiOperation({
     summary: "Delete quiz by ID",
@@ -229,8 +260,12 @@ export class QuizController {
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({ status: 404, description: "ID not found" })
   @ApiResponse({ status: 500, description: "Delete failed" })
-  async deleteQuiz(@Param("id") id: string) {
+  async deleteQuiz(
+      @Param("id") id: string,
+      @Headers("authorization") authorization?: string
+    ) {
     try {
+      await verifyAdminToken(authorization);
       const result = await pool.query(
         "DELETE FROM quiz WHERE quiz_id = $1 RETURNING *",
         [id]
