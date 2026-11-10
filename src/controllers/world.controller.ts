@@ -48,16 +48,15 @@ export class WorldController {
     }
   }
 
-  // NEWLY ADDED HERE TO THE END
   @Get("/:id")
   @ApiOperation({
     summary: "Get world by Id",
     description: "Returns an active world by its Id",
   })
   @ApiParam({ name: "id", type: Number })
-  @ApiResponse({ status: 200, description: "World foud" })
+  @ApiResponse({ status: 200, description: "World found" })
   @ApiResponse({ status: 400, description: "Invalid Id format" })
-  @ApiResponse({ status: 404, description: "World not foud" })
+  @ApiResponse({ status: 404, description: "World not found" })
   @ApiResponse({ status: 500, description: "Database query failed" })
   async getWorldById(@Param("id") id: string) {
     const worldId = Number(id);
@@ -81,6 +80,34 @@ export class WorldController {
   }
 
   @Post("/")
+  @ApiOperation({
+    summary: "Create a world",
+    description: "Adds a new world",
+  })
+  @ApiBody({
+    description: "New world details",
+    required: true,
+    schema: {
+      type: "object",
+      required: [
+        "organization_id",
+        "world_name_fi",
+        "world_name_en",
+        "order_number",
+      ],
+      properties: {
+        organization_id: { type: "integer", example: 1 },
+        world_name_fi: { type: "string", example: "Uusi maailma" },
+        world_name_en: { type: "string", example: "New World" },
+        order_number: { type: "integer", example: 1 },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: "Created" })
+  @ApiResponse({ status: 400, description: "Invalid world fields" })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
+  @ApiResponse({ status: 500, description: "Insert failed" })
   @ApiBearerAuth("bearerAuth")
   async createWorld(
     @Body() body: Record<string, any>,
@@ -106,7 +133,7 @@ export class WorldController {
 
     const result = await pool.query(
       `INSERT INTO World
-        (organization_id, world_name_fi,         world_name_en, order_number)
+        (organization_id, world_name_fi, world_name_en, order_number)
       VALUES ($1, $2, $3, $4)
       RETURNING *`,
       [organization_id, world_name_fi, world_name_en, order_number]
@@ -145,7 +172,7 @@ export class WorldController {
   @ApiResponse({ status: 401, description: "Unauthorized" })
   @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 404, description: "World not found" })
-  @ApiResponse({ status: 500, description: "Udpate failed" })
+  @ApiResponse({ status: 500, description: "Update failed" })
   @ApiBearerAuth("bearerAuth")
   async updateWorld(
     @Param("id") id: string,
@@ -195,7 +222,7 @@ export class WorldController {
       );
 
       if (result.rowCount === 0) {
-        throw new BadRequestException({ error: "ID not found" });
+        throw new NotFoundException({ error: "ID not found" });
       }
       return { message: "Updated successfully", updated: result.rows[0] };
     } catch (err) {
@@ -215,7 +242,7 @@ export class WorldController {
   @ApiResponse({ status: 400, description: "Invalid Id format" })
   @ApiResponse({ status: 401, description: "Unauthorized" })
   @ApiResponse({ status: 403, description: "Admin access required" })
-  @ApiResponse({ status: 404, description: "Wolrd not found" })
+  @ApiResponse({ status: 404, description: "World not found" })
   @ApiResponse({ status: 500, description: "Deletion failed" })
   @ApiBearerAuth("bearerAuth")
   async deleteWorld(

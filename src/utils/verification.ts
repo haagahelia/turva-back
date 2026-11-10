@@ -4,12 +4,14 @@ import jwt, { TokenExpiredError } from "jsonwebtoken";
 import { JwtPayload } from "jsonwebtoken";
 import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
 
-// verifyAdminToken added (09.11.2026), the admin check helper
-export const verifyAdminToken = async (authorization?: string): Promise<JwtPayload> => {
+// Verifies the JWT, then checks in the database that the user is an active admin
+export const verifyAdminToken = async (
+  authorization?: string
+): Promise<JwtPayload> => {
   const decoded = verifyToken(authorization);
 
   if (
-    typeof decoded.email != "string" ||
+    typeof decoded.email !== "string" ||
     typeof decoded.username !== "string"
   ) {
     throw new UnauthorizedException({ error: "Token is invalid" });
@@ -30,7 +32,7 @@ export const verifyAdminToken = async (authorization?: string): Promise<JwtPaylo
   }
 
   return decoded;
-}
+};
 
 export const verifyToken = (authorization?: string): JwtPayload => {
   try {

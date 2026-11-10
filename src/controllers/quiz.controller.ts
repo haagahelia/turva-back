@@ -25,6 +25,71 @@ import {
 import { pool } from "../config/db";
 import { verifyAdminToken } from "@/utils/verification";
 
+// Shortened example of the quiz_content format used in sql/init.sql
+const QUIZ_CONTENT_EXAMPLE = {
+  fi: {
+    quiz_intro: [
+      { title: "p0", type: "quiz_header", content: "Toimi vastuullisesti" },
+      { title: "p1", type: "quiz_info", content: "Järjestyssäännöt..." },
+    ],
+    questions: [
+      {
+        title: "q1",
+        type: "quiz_question",
+        content: "Mitä järjestyssäännöt määrittävät?",
+        answers: [
+          {
+            title: "c1",
+            content: "Oikeutesi ja velvollisuutesi opiskelijana",
+            is_correct: true,
+          },
+          {
+            title: "c2",
+            content: "Vain ruokailuajat kampuksella",
+            is_correct: false,
+          },
+        ],
+      },
+    ],
+  },
+  en: {
+    quiz_intro: [
+      { title: "p0", type: "quiz_header", content: "Act responsibly" },
+      { title: "p1", type: "quiz_info", content: "The rules of conduct..." },
+    ],
+    questions: [
+      {
+        title: "q1",
+        type: "quiz_question",
+        content: "What do the rules of conduct define?",
+        answers: [
+          {
+            title: "c1",
+            content: "Your rights and responsibilities as a student",
+            is_correct: true,
+          },
+          {
+            title: "c2",
+            content: "Only meal times on campus",
+            is_correct: false,
+          },
+        ],
+      },
+    ],
+  },
+};
+
+// PostgreSQL INTEGER upper bound; larger ids can never exist
+const MAX_ID = 2147483647;
+
+const parseQuizId = (id: string): number => {
+  const quizId = Number(id);
+  if (!Number.isInteger(quizId) || quizId <= 0 || quizId > MAX_ID) {
+    throw new BadRequestException({ error: "Invalid ID format" });
+  }
+  return quizId;
+};
+
 @Controller("quiz")
 @ApiTags("Quiz")
 export class QuizController {
@@ -143,31 +208,24 @@ export class QuizController {
         world_id: { type: "integer", example: 1 },
         quiz_name_fi: { type: "string", example: "Uusi tietovisa" },
         quiz_name_en: { type: "string", example: "New Quiz" },
-        //quiz_content: { type: "object" },
-        //Claude recommends to change quiz_content to either nested JSON or an array. previously it was described as an object
         quiz_content: {
-          oneOf: [
-            { type: "object", additionalProperties: true },
-            { type: "array", items: {} },
-          ],
-          example: {
-            question: "What is the capital of Finland?",
-            answer: "Helsinki",
-            options: ["Helsinki", "Tampere", "Turku", "Oulu"],
-          },
+          type: "object",
+          description:
+            "Quiz texts per language (fi, en): quiz_intro blocks and questions with answers",
+          example: QUIZ_CONTENT_EXAMPLE,
         },
         order_number: { type: "integer", example: 1 },
       },
       required: ["world_id", "quiz_name_fi", "quiz_name_en", "order_number"],
     },
   })
-
-  // ADD AUTHORIZATION
   @ApiResponse({ status: 201, description: "Created" })
   @ApiResponse({
     status: 400,
-    description: "world_id, quiz_name_fi, quiz_name_en or order_number missing",
+    description: "Missing or invalid world_id, quiz names or order_number",
   })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 500, description: "Insert failed" })
   @ApiBearerAuth("bearerAuth")
   async createQuiz(
@@ -177,7 +235,6 @@ export class QuizController {
     try {
       await verifyAdminToken(authorization);
 
-      // CORRECTION OF DATA-SHAPE ISSUE, NAME MISMATCHED
       const {
         world_id,
         quiz_name_fi,
@@ -200,9 +257,9 @@ export class QuizController {
       }
 
       if (
-        !Number.isFinite(Number(world_id)) ||
+        !Number.isInteger(Number(world_id)) ||
         Number(world_id) <= 0 ||
-        !Number.isFinite(Number(order_number)) ||
+        !Number.isInteger(Number(order_number)) ||
         Number(order_number) < 0
       ) {
         throw new BadRequestException({
@@ -236,49 +293,53 @@ export class QuizController {
   @Put("/:id")
   @ApiOperation({
     summary: "Update Quiz content",
-    description: "Update quiz content for quiz where ID matches",
+    description:
+      "Replaces quiz_content of an active quiz. The request body is the new quiz_content; names and order are not changed.",
   })
-
-  // ADD AUTHORIZATION
   @ApiBearerAuth("bearerAuth")
   @ApiParam({ name: "id", type: Number })
   @ApiBody({
-    description: "quiz content JSON",
+    description: "New quiz_content JSON (object or array)",
     required: true,
-    schema: { type: "object", example: { question: "Example question" } },
+    schema: { type: "object", example: QUIZ_CONTENT_EXAMPLE },
   })
   @ApiResponse({ status: 201, description: "Updated successfully" })
-  @ApiResponse({ status: 400, description: "Invalid ID format" })
+  @ApiResponse({
+    status: 400,
+    description: "Invalid ID format or body is not JSON",
+  })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 404, description: "ID not found" })
   @ApiResponse({ status: 500, description: "Update failed" })
   async updateQuiz(
     @Param("id") id: string,
     @Body() body: Record<string, any>,
-    @Headers("authorization") authorization?: string
+    @Headers("authorization") authorization?: string,
+    @Headers("content-type") contentType?: string
   ) {
     try {
       await verifyAdminToken(authorization);
-      if (
-        typeof id !== "string" ||
-        id.trim() === "" ||
-        Number.isNaN(Number(id))
-      ) {
-        throw new BadRequestException({ error: "Invalid ID format" });
-      }
+      const quizId = parseQuizId(id);
 
-      if (body === undefined) {
+      // Only accept a JSON object or array. Other content types (e.g. form
+      // data or plain text) would otherwise be stored as quiz content.
+      if (
+        !contentType?.toLowerCase().includes("application/json") ||
+        body === null ||
+        typeof body !== "object"
+      ) {
         throw new BadRequestException({
           error: "Request body must be valid JSON",
         });
       }
 
-      // THIS CODE ALLOWS ADMINS TO UPDATE ONLY QUIZ_CONTENT
       const result = await pool.query(
         `UPDATE Quiz
         SET quiz_content = $1
         WHERE quiz_id = $2 AND deleted_at IS NULL
         RETURNING *`,
-        [JSON.stringify(body), id]
+        [JSON.stringify(body), quizId]
       );
       if (result.rowCount === 0) {
         throw new NotFoundException({ error: "ID not found" });
@@ -299,6 +360,9 @@ export class QuizController {
   })
   @ApiParam({ name: "id", type: Number })
   @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({ status: 400, description: "Invalid ID format" })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 404, description: "ID not found" })
   @ApiResponse({ status: 500, description: "Delete failed" })
   async deleteQuiz(
@@ -307,14 +371,13 @@ export class QuizController {
   ) {
     try {
       await verifyAdminToken(authorization);
+      const quizId = parseQuizId(id);
       const result = await pool.query(
-        `
-          UPDATE Quiz
-          SET deleted_at = CURRENT_TIMESTAMP
-          WHERE quiz_id = $1 AND deleted_at IS NULL
-          RETURNING *
-        `,
-        [id]
+        `UPDATE Quiz
+        SET deleted_at = CURRENT_TIMESTAMP
+        WHERE quiz_id = $1 AND deleted_at IS NULL
+        RETURNING *`,
+        [quizId]
       );
       if (result.rowCount === 0) {
         throw new NotFoundException({ error: "ID not found" });

@@ -586,7 +586,7 @@ describe("Quiz api integration tests", () => {
         expect(res.body.updated.quiz_content).toHaveProperty("testType");
       });
 
-      it('Verify that "created_at" property has changed', async () => {
+      it('Verify that "created_at" property does not change', async () => {
         const result = await pool.query(
           "SELECT created_at FROM Quiz WHERE quiz_id = $1",
           [testQuizId]
@@ -600,18 +600,17 @@ describe("Quiz api integration tests", () => {
         expect(res.statusCode).toBe(201);
 
         const createdAt = new Date(res.body.updated.created_at).getTime();
-        expect(createdAt).toBeGreaterThan(oldCreatedAt);
-        expect(oldCreatedAt).not.toEqual(createApp);
+        expect(createdAt).toBe(oldCreatedAt);
       });
     });
 
     describe("ID Parameter Validation", () => {
-      it("Should return 400 when quiz ID does not exist", async () => {
+      it("Should return 404 when quiz ID does not exist", async () => {
         const res: Response = await request(app.getHttpServer())
           .put("/api/quiz/99999")
           .set("Authorization", `Bearer ${adminToken}`)
           .send(updatedQuizContent);
-        expect(res.statusCode).toBe(400);
+        expect(res.statusCode).toBe(404);
         expect(res.body).toHaveProperty("error");
         expect(res.body.error).toBe("ID not found");
       });
@@ -630,7 +629,7 @@ describe("Quiz api integration tests", () => {
           .set("Authorization", `Bearer ${adminToken}`)
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(400);
-        expect(res.body.error).toBe("ID not found");
+        expect(res.body.error).toBe("Invalid ID format");
       });
 
       it("Should handle zero as ID", async () => {
@@ -639,7 +638,7 @@ describe("Quiz api integration tests", () => {
           .set("Authorization", `Bearer ${adminToken}`)
           .send(updatedQuizContent);
         expect(res.statusCode).toBe(400);
-        expect(res.body.error).toBe("ID not found");
+        expect(res.body.error).toBe("Invalid ID format");
       });
 
       it("Should handle very large ID number (PostgreSQL integer overflow)", async () => {
@@ -840,17 +839,29 @@ describe("Quiz api integration tests", () => {
         expect(deleted.quiz_name_en).toBe("DELETE_TEST_QUIZ_EN");
       });
 
-      it("Should verify quiz is actually deleted from database", async () => {
+      it("Should soft delete the quiz (row kept, deleted_at set)", async () => {
         const res: Response = await request(app.getHttpServer())
           .delete(`/api/quiz/${deleteTestQuizId}`)
           .set("Authorization", `Bearer ${adminToken}`);
         expect(res.statusCode).toBe(200);
 
         const quizFromDb = await pool.query(
-          "SELECT * FROM Quiz WHERE quiz_id = $1",
+          "SELECT deleted_at FROM Quiz WHERE quiz_id = $1",
           [deleteTestQuizId]
         );
-        expect(quizFromDb.rows.length).toBe(0);
+        expect(quizFromDb.rows.length).toBe(1);
+        expect(quizFromDb.rows[0].deleted_at).not.toBeNull();
+      });
+
+      it("Should hide the deleted quiz from GET /api/quiz/:id", async () => {
+        await request(app.getHttpServer())
+          .delete(`/api/quiz/${deleteTestQuizId}`)
+          .set("Authorization", `Bearer ${adminToken}`);
+
+        const res: Response = await request(app.getHttpServer()).get(
+          `/api/quiz/${deleteTestQuizId}`
+        );
+        expect(res.statusCode).toBe(404);
       });
     });
 
@@ -868,25 +879,23 @@ describe("Quiz api integration tests", () => {
         const res: Response = await request(app.getHttpServer())
           .delete("/api/quiz/-1")
           .set("Authorization", `Bearer ${adminToken}`);
-        expect(res.statusCode).toBe(404);
-        expect(res.body.error).toBe("ID not found");
+        expect(res.statusCode).toBe(400);
+        expect(res.body.error).toBe("Invalid ID format");
       });
 
       it("Should handle zero as ID", async () => {
         const res: Response = await request(app.getHttpServer())
           .delete("/api/quiz/0")
           .set("Authorization", `Bearer ${adminToken}`);
-        expect(res.statusCode).toBe(404);
-        expect(res.body.error).toBe("ID not found");
+        expect(res.statusCode).toBe(400);
+        expect(res.body.error).toBe("Invalid ID format");
       });
 
       it("Should handle very large ID number", async () => {
         const res: Response = await request(app.getHttpServer())
           .delete("/api/quiz/999999999999")
           .set("Authorization", `Bearer ${adminToken}`);
-        console.log(res.body);
-
-        expect([400, 500]).toContain(res.statusCode);
+        expect(res.statusCode).toBe(400);
       });
     });
 

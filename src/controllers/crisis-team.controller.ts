@@ -10,10 +10,10 @@ import {
   Param,
   Post,
   Put,
-  Headers, //newly added
+  Headers,
 } from "@nestjs/common";
 import {
-  ApiBearerAuth, // newly added
+  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -22,7 +22,7 @@ import {
 } from "@nestjs/swagger";
 
 import { pool } from "../config/db";
-import { verifyAdminToken } from "@/utils/verification"; //newly added
+import { verifyAdminToken } from "@/utils/verification";
 
 @Controller("crisis-team")
 @ApiTags("Crisis Team")
@@ -89,8 +89,6 @@ export class CrisisTeamController {
     }
   }
 
-
-  // ADD AUTHORIZATION
   @ApiBearerAuth("bearerAuth")
   @Delete("/:id")
   @ApiOperation({
@@ -105,11 +103,13 @@ export class CrisisTeamController {
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({ status: 400, description: "Invalid ID format" })
   @ApiResponse({ status: 404, description: "ID not found" })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 500, description: "Delete failed" })
   async deleteCrisisTeamContact(
-      @Param("id") id: string,
-      @Headers("authorization") authorization?: string
-    ) {
+    @Param("id") id: string,
+    @Headers("authorization") authorization?: string
+  ) {
     try {
       await verifyAdminToken(authorization);
       const numericId = Number(id);
@@ -133,7 +133,6 @@ export class CrisisTeamController {
     }
   }
 
-  // ADD AUTHORIZATION
   @Post("/")
   @ApiOperation({
     summary: "Add new crisis team contact to db",
@@ -164,14 +163,16 @@ export class CrisisTeamController {
   })
   @ApiResponse({ status: 201, description: "Created" })
   @ApiResponse({ status: 400, description: "Missing required fields" })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 500, description: "Insert failed" })
   @ApiBearerAuth("bearerAuth")
   async createCrisisTeamContact(
-      @Body() body: Record<string, any>,
-      @Headers("authorization") authorization?: string //added
-    ) {
+    @Body() body: Record<string, any>,
+    @Headers("authorization") authorization?: string
+  ) {
     try {
-      await verifyAdminToken(authorization); // added
+      await verifyAdminToken(authorization);
       const { organization_id, name_fi, name_en, role_fi, role_en, phone } =
         body;
       if (
@@ -201,8 +202,6 @@ export class CrisisTeamController {
     }
   }
 
-
-  // ADD AUTHORIZATION
   @ApiBearerAuth("bearerAuth")
   @Put("/:id")
   @ApiOperation({
@@ -233,14 +232,16 @@ export class CrisisTeamController {
     description: "Invalid ID format or missing required fields",
   })
   @ApiResponse({ status: 404, description: "ID not found" })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 500, description: "Update failed" })
   async updateCrisisTeamContact(
     @Param("id") id: string,
     @Body() body: Record<string, any>,
-    @Headers("authorization") authorization?: string //added
+    @Headers("authorization") authorization?: string
   ) {
     try {
-      await verifyAdminToken(authorization); //added
+      await verifyAdminToken(authorization);
       const numericId = Number(id);
 
       if (!Number.isInteger(numericId) || numericId <= 0) {
