@@ -33,12 +33,13 @@ export class QuizController {
     summary: "Returns all quizzes",
     description: "Returns all quizzes in JSON format",
   })
-
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({ status: 500, description: "Database query failed" })
   async getAllQuizzes() {
     try {
-      const result = await pool.query("SELECT * FROM Quiz;");
+      const result = await pool.query(
+        "SELECT * FROM Quiz WHERE deleted_at IS NULL ORDER BY order_number;"
+      );
       return result.rows;
     } catch (err) {
       if (err instanceof HttpException) throw err;
@@ -55,7 +56,6 @@ export class QuizController {
     description:
       "Searches a specific quiz by its ID and returns it in JSON format",
   })
-
   @ApiParam({ name: "id", type: Number })
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({ status: 400, description: "Invalid ID format" })
@@ -71,9 +71,10 @@ export class QuizController {
         throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const result = await pool.query("SELECT * FROM quiz WHERE quiz_id = $1", [
-        id,
-      ]);
+      const result = await pool.query(
+        "SELECT * FROM quiz WHERE quiz_id = $1 AND deleted_at IS NULL",
+        [id]
+      );
       if (result.rowCount === 0) {
         throw new NotFoundException({ error: "ID not found" });
       }
@@ -97,7 +98,6 @@ export class QuizController {
     type: Number,
     description: "Numeric ID of the world whose quizzes you want",
   })
-
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({ status: 400, description: "Invalid ID format" })
   @ApiResponse({ status: 404, description: "ID not found" })
@@ -113,7 +113,7 @@ export class QuizController {
       }
 
       const result = await pool.query(
-        "SELECT * FROM quiz WHERE world_id = $1",
+        "SELECT * FROM Quiz WHERE world_id = $1 AND deleted_at IS NULL ORDER BY order_number",
         [world_id]
       );
       if (result.rowCount === 0) {
@@ -134,19 +134,31 @@ export class QuizController {
     summary: "Add new quiz to db",
     description: "Insert into quiz",
   })
-
-  //still have quiz_name
   @ApiBody({
-    description: "Quiz world, name, content, and order",
+    description: "Quiz world, Finnish and English names, content, and order",
     required: true,
     schema: {
       type: "object",
       properties: {
         world_id: { type: "integer", example: 1 },
-        quiz_name: { type: "string", example: "New Quiz" },
-        quiz_content: { type: "object" },
+        quiz_name_fi: { type: "string", example: "Uusi tietovisa" },
+        quiz_name_en: { type: "string", example: "New Quiz" },
+        //quiz_content: { type: "object" },
+        //Claude recommends to change quiz_content to either nested JSON or an array. previously it was described as an object
+        quiz_content: {
+          oneOf: [
+            { type: "object", additionalProperties: true },
+            { type: "array", items: {} },
+          ],
+          example: {
+            question: "What is the capital of Finland?",
+            answer: "Helsinki",
+            options: ["Helsinki", "Tampere", "Turku", "Oulu"],
+          },
+        },
         order_number: { type: "integer", example: 1 },
       },
+      required: ["world_id", "quiz_name_fi", "quiz_name_en", "order_number"],
     },
   })
 
@@ -154,14 +166,14 @@ export class QuizController {
   @ApiResponse({ status: 201, description: "Created" })
   @ApiResponse({
     status: 400,
-    description: "world_id, quiz_name or order_number missing",
+    description: "world_id, quiz_name_fi, quiz_name_en or order_number missing",
   })
   @ApiResponse({ status: 500, description: "Insert failed" })
   @ApiBearerAuth("bearerAuth")
   async createQuiz(
-          @Body() body: Record<string, any>,
-          @Headers("authorization") authorization?: string
-        ) {
+    @Body() body: Record<string, any>,
+    @Headers("authorization") authorization?: string
+  ) {
     try {
       await verifyAdminToken(authorization);
 
@@ -171,7 +183,32 @@ export class QuizController {
         quiz_name_fi,
         quiz_name_en,
         quiz_content,
-        order_number } = body;
+        order_number,
+      } = body;
+
+      if (
+        world_id == null ||
+        typeof quiz_name_fi !== "string" ||
+        quiz_name_fi.trim() === "" ||
+        typeof quiz_name_en !== "string" ||
+        quiz_name_en.trim() === "" ||
+        order_number == null
+      ) {
+        throw new BadRequestException({
+          error: "world_id, quiz_name_fi, quiz_name_en or order_number missing",
+        });
+      }
+
+      if (
+        !Number.isFinite(Number(world_id)) ||
+        Number(world_id) <= 0 ||
+        !Number.isFinite(Number(order_number)) ||
+        Number(order_number) < 0
+      ) {
+        throw new BadRequestException({
+          error: "Invalid world_id or order_number",
+        });
+      }
 
       const result = await pool.query(
         `INSERT INTO Quiz
@@ -215,9 +252,10 @@ export class QuizController {
   @ApiResponse({ status: 404, description: "ID not found" })
   @ApiResponse({ status: 500, description: "Update failed" })
   async updateQuiz(
-      @Param("id") id: string, @Body() body: Record<string, any>,
-      @Headers("authorization") authorization?: string
-    ) {
+    @Param("id") id: string,
+    @Body() body: Record<string, any>,
+    @Headers("authorization") authorization?: string
+  ) {
     try {
       await verifyAdminToken(authorization);
       if (
@@ -236,11 +274,14 @@ export class QuizController {
 
       // THIS CODE ALLOWS ADMINS TO UPDATE ONLY QUIZ_CONTENT
       const result = await pool.query(
-        "UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *",
+        `UPDATE Quiz
+        SET quiz_content = $1
+        WHERE quiz_id = $2 AND deleted_at IS NULL
+        RETURNING *`,
         [JSON.stringify(body), id]
       );
       if (result.rowCount === 0) {
-        throw new BadRequestException({ error: "ID not found" });
+        throw new NotFoundException({ error: "ID not found" });
       }
       return { message: "Updated successfully", updated: result.rows[0] };
     } catch (err) {
@@ -254,20 +295,25 @@ export class QuizController {
   @Delete("/:id")
   @ApiOperation({
     summary: "Delete quiz by ID",
-    description: "Delete a quiz by its ID",
+    description: "Soft delete an active quiz by its ID",
   })
   @ApiParam({ name: "id", type: Number })
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({ status: 404, description: "ID not found" })
   @ApiResponse({ status: 500, description: "Delete failed" })
   async deleteQuiz(
-      @Param("id") id: string,
-      @Headers("authorization") authorization?: string
-    ) {
+    @Param("id") id: string,
+    @Headers("authorization") authorization?: string
+  ) {
     try {
       await verifyAdminToken(authorization);
       const result = await pool.query(
-        "DELETE FROM quiz WHERE quiz_id = $1 RETURNING *",
+        `
+          UPDATE Quiz
+          SET deleted_at = CURRENT_TIMESTAMP
+          WHERE quiz_id = $1 AND deleted_at IS NULL
+          RETURNING *
+        `,
         [id]
       );
       if (result.rowCount === 0) {
