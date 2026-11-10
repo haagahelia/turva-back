@@ -1,4 +1,5 @@
 import {
+  Headers,
   BadRequestException,
   Body,
   Controller,
@@ -13,6 +14,7 @@ import {
   Put,
 } from "@nestjs/common";
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -21,6 +23,72 @@ import {
 } from "@nestjs/swagger";
 
 import { pool } from "../config/db";
+import { verifyAdminToken } from "@/utils/verification";
+
+// Shortened example of the quiz_content format used in sql/init.sql
+const QUIZ_CONTENT_EXAMPLE = {
+  fi: {
+    quiz_intro: [
+      { title: "p0", type: "quiz_header", content: "Toimi vastuullisesti" },
+      { title: "p1", type: "quiz_info", content: "Järjestyssäännöt..." },
+    ],
+    questions: [
+      {
+        title: "q1",
+        type: "quiz_question",
+        content: "Mitä järjestyssäännöt määrittävät?",
+        answers: [
+          {
+            title: "c1",
+            content: "Oikeutesi ja velvollisuutesi opiskelijana",
+            is_correct: true,
+          },
+          {
+            title: "c2",
+            content: "Vain ruokailuajat kampuksella",
+            is_correct: false,
+          },
+        ],
+      },
+    ],
+  },
+  en: {
+    quiz_intro: [
+      { title: "p0", type: "quiz_header", content: "Act responsibly" },
+      { title: "p1", type: "quiz_info", content: "The rules of conduct..." },
+    ],
+    questions: [
+      {
+        title: "q1",
+        type: "quiz_question",
+        content: "What do the rules of conduct define?",
+        answers: [
+          {
+            title: "c1",
+            content: "Your rights and responsibilities as a student",
+            is_correct: true,
+          },
+          {
+            title: "c2",
+            content: "Only meal times on campus",
+            is_correct: false,
+          },
+        ],
+      },
+    ],
+  },
+};
+
+// PostgreSQL INTEGER upper bound; larger ids can never exist
+const MAX_ID = 2147483647;
+
+const parseQuizId = (id: string): number => {
+  const quizId = Number(id);
+  if (!Number.isInteger(quizId) || quizId <= 0 || quizId > MAX_ID) {
+    throw new BadRequestException({ error: "Invalid ID format" });
+  }
+  return quizId;
+};
 
 @Controller("quiz")
 @ApiTags("Quiz")
@@ -34,7 +102,9 @@ export class QuizController {
   @ApiResponse({ status: 500, description: "Database query failed" })
   async getAllQuizzes() {
     try {
-      const result = await pool.query("SELECT * FROM Quiz;");
+      const result = await pool.query(
+        "SELECT * FROM Quiz WHERE deleted_at IS NULL ORDER BY order_number;"
+      );
       return result.rows;
     } catch (err) {
       if (err instanceof HttpException) throw err;
@@ -66,9 +136,10 @@ export class QuizController {
         throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const result = await pool.query("SELECT * FROM quiz WHERE quiz_id = $1", [
-        id,
-      ]);
+      const result = await pool.query(
+        "SELECT * FROM quiz WHERE quiz_id = $1 AND deleted_at IS NULL",
+        [id]
+      );
       if (result.rowCount === 0) {
         throw new NotFoundException({ error: "ID not found" });
       }
@@ -107,7 +178,7 @@ export class QuizController {
       }
 
       const result = await pool.query(
-        "SELECT * FROM quiz WHERE world_id = $1",
+        "SELECT * FROM Quiz WHERE world_id = $1 AND deleted_at IS NULL ORDER BY order_number",
         [world_id]
       );
       if (result.rowCount === 0) {
@@ -129,42 +200,87 @@ export class QuizController {
     description: "Insert into quiz",
   })
   @ApiBody({
-    description: "Quiz world, name, content, and order",
+    description: "Quiz world, Finnish and English names, content, and order",
     required: true,
     schema: {
       type: "object",
       properties: {
         world_id: { type: "integer", example: 1 },
-        quiz_name: { type: "string", example: "New Quiz" },
-        quiz_content: { type: "object" },
+        quiz_name_fi: { type: "string", example: "Uusi tietovisa" },
+        quiz_name_en: { type: "string", example: "New Quiz" },
+        quiz_content: {
+          type: "object",
+          description:
+            "Quiz texts per language (fi, en): quiz_intro blocks and questions with answers",
+          example: QUIZ_CONTENT_EXAMPLE,
+        },
         order_number: { type: "integer", example: 1 },
       },
+      required: ["world_id", "quiz_name_fi", "quiz_name_en", "order_number"],
     },
   })
   @ApiResponse({ status: 201, description: "Created" })
   @ApiResponse({
     status: 400,
-    description: "world_id, quiz_name or order_number missing",
+    description: "Missing or invalid world_id, quiz names or order_number",
   })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 500, description: "Insert failed" })
-  async createQuiz(@Body() body: Record<string, any>) {
+  @ApiBearerAuth("bearerAuth")
+  async createQuiz(
+    @Body() body: Record<string, any>,
+    @Headers("authorization") authorization?: string
+  ) {
     try {
-      const { world_id, quiz_name, quiz_content, order_number } = body;
+      await verifyAdminToken(authorization);
+
+      const {
+        world_id,
+        quiz_name_fi,
+        quiz_name_en,
+        quiz_content,
+        order_number,
+      } = body;
+
       if (
-        !world_id ||
-        !quiz_name ||
-        !order_number ||
-        world_id < 0 ||
-        order_number < 0
+        world_id == null ||
+        typeof quiz_name_fi !== "string" ||
+        quiz_name_fi.trim() === "" ||
+        typeof quiz_name_en !== "string" ||
+        quiz_name_en.trim() === "" ||
+        order_number == null
       ) {
         throw new BadRequestException({
-          error: "World id, quiz name or order number missing",
+          error: "world_id, quiz_name_fi, quiz_name_en or order_number missing",
         });
       }
+
+      if (
+        !Number.isInteger(Number(world_id)) ||
+        Number(world_id) <= 0 ||
+        !Number.isInteger(Number(order_number)) ||
+        Number(order_number) < 0
+      ) {
+        throw new BadRequestException({
+          error: "Invalid world_id or order_number",
+        });
+      }
+
       const result = await pool.query(
-        "INSERT INTO quiz (world_id, quiz_name, quiz_content, order_number) VALUES ($1, $2, $3, $4) RETURNING *",
-        [world_id, quiz_name, JSON.stringify(quiz_content), order_number]
+        `INSERT INTO Quiz
+          (world_id, quiz_name_fi, quiz_name_en, quiz_content, order_number)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *`,
+        [
+          world_id,
+          quiz_name_fi,
+          quiz_name_en,
+          JSON.stringify(quiz_content ?? {}),
+          order_number,
+        ]
       );
+
       return result.rows[0];
     } catch (err) {
       if (err instanceof HttpException) throw err;
@@ -177,40 +293,56 @@ export class QuizController {
   @Put("/:id")
   @ApiOperation({
     summary: "Update Quiz content",
-    description: "Update quiz content for quiz where ID matches",
+    description:
+      "Replaces quiz_content of an active quiz. The request body is the new quiz_content; names and order are not changed.",
   })
+  @ApiBearerAuth("bearerAuth")
   @ApiParam({ name: "id", type: Number })
   @ApiBody({
-    description: "quiz content JSON",
+    description: "New quiz_content JSON (object or array)",
     required: true,
-    schema: { type: "object", example: { question: "Example question" } },
+    schema: { type: "object", example: QUIZ_CONTENT_EXAMPLE },
   })
   @ApiResponse({ status: 201, description: "Updated successfully" })
-  @ApiResponse({ status: 400, description: "Invalid ID format" })
+  @ApiResponse({
+    status: 400,
+    description: "Invalid ID format or body is not JSON",
+  })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 404, description: "ID not found" })
   @ApiResponse({ status: 500, description: "Update failed" })
-  async updateQuiz(@Param("id") id: string, @Body() body: Record<string, any>) {
+  async updateQuiz(
+    @Param("id") id: string,
+    @Body() body: Record<string, any>,
+    @Headers("authorization") authorization?: string,
+    @Headers("content-type") contentType?: string
+  ) {
     try {
-      if (
-        typeof id !== "string" ||
-        id.trim() === "" ||
-        Number.isNaN(Number(id))
-      ) {
-        throw new BadRequestException({ error: "Invalid ID format" });
-      }
+      await verifyAdminToken(authorization);
+      const quizId = parseQuizId(id);
 
-      if (body === undefined) {
+      // Only accept a JSON object or array. Other content types (e.g. form
+      // data or plain text) would otherwise be stored as quiz content.
+      if (
+        !contentType?.toLowerCase().includes("application/json") ||
+        body === null ||
+        typeof body !== "object"
+      ) {
         throw new BadRequestException({
           error: "Request body must be valid JSON",
         });
       }
 
       const result = await pool.query(
-        "UPDATE Quiz SET quiz_content = $1, created_at = CURRENT_TIMESTAMP WHERE quiz_id = $2 RETURNING *",
-        [JSON.stringify(body), id]
+        `UPDATE Quiz
+        SET quiz_content = $1
+        WHERE quiz_id = $2 AND deleted_at IS NULL
+        RETURNING *`,
+        [JSON.stringify(body), quizId]
       );
       if (result.rowCount === 0) {
-        throw new BadRequestException({ error: "ID not found" });
+        throw new NotFoundException({ error: "ID not found" });
       }
       return { message: "Updated successfully", updated: result.rows[0] };
     } catch (err) {
@@ -220,20 +352,32 @@ export class QuizController {
     }
   }
 
+  @ApiBearerAuth("bearerAuth")
   @Delete("/:id")
   @ApiOperation({
     summary: "Delete quiz by ID",
-    description: "Delete a quiz by its ID",
+    description: "Soft delete an active quiz by its ID",
   })
   @ApiParam({ name: "id", type: Number })
   @ApiResponse({ status: 200, description: "OK" })
+  @ApiResponse({ status: 400, description: "Invalid ID format" })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 404, description: "ID not found" })
   @ApiResponse({ status: 500, description: "Delete failed" })
-  async deleteQuiz(@Param("id") id: string) {
+  async deleteQuiz(
+    @Param("id") id: string,
+    @Headers("authorization") authorization?: string
+  ) {
     try {
+      await verifyAdminToken(authorization);
+      const quizId = parseQuizId(id);
       const result = await pool.query(
-        "DELETE FROM quiz WHERE quiz_id = $1 RETURNING *",
-        [id]
+        `UPDATE Quiz
+        SET deleted_at = CURRENT_TIMESTAMP
+        WHERE quiz_id = $1 AND deleted_at IS NULL
+        RETURNING *`,
+        [quizId]
       );
       if (result.rowCount === 0) {
         throw new NotFoundException({ error: "ID not found" });
