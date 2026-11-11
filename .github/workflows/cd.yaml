@@ -1,0 +1,104 @@
+name: CD pipeline
+
+concurrency:
+  group: turva-back-cd
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main
+      - feature/csc-rahti-cd
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and deploy to CSC Rahti
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      CSC_PROJECT: ${{ secrets.CSC_PROJECT }}
+      COMMIT_SHA: ${{ github.sha }}
+      ENABLE_SWAGGER: ${{ vars.ENABLE_SWAGGER }}
+      TEST_DOMAIN: ${{ vars.TEST_DOMAIN }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint and build application
+        run: |
+          npm run lint
+          npm run build
+
+      - name: Cache CSC Rahti CLI
+        id: cache-oc
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/oc
+          key: openshift-cli-4.15.9-linux-amd64
+
+      - name: Install CSC Rahti CLI
+        if: steps.cache-oc.outputs.cache-hit != 'true'
+        run: |
+          archive="$RUNNER_TEMP/openshift-client-linux-4.15.9.tar.gz"
+          wget -O "$archive" https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.15.9/openshift-client-linux-4.15.9.tar.gz
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          mkdir -p "$HOME/.local/bin"
+          mv "$RUNNER_TEMP/oc" "$HOME/.local/bin/oc"
+
+      - name: Add CSC Rahti CLI to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify CSC Rahti CLI
+        run: oc version --client
+
+      - name: Log in to CSC Rahti
+        env:
+          CSC_TOKEN: ${{ secrets.CSC_TOKEN }}
+        run: |
+          oc login --token="$CSC_TOKEN" --server=https://api.2.rahti.csc.fi:6443
+          oc project "$CSC_PROJECT"
+          oc create imagestream turva-back --dry-run=client -o yaml | oc apply -f -
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and publish Docker image
+        run: |
+          IMAGE="image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/turva-back:$COMMIT_SHA"
+          oc whoami -t | docker login --username unused --password-stdin image-registry.apps.2.rahti.csc.fi
+          docker buildx build \
+            --target deploy \
+            --tag "$IMAGE" \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --push \
+            .
+
+      - name: Apply runtime secrets from GitHub Actions
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          envsubst < csc/runtime_secret_template.yml | oc apply -f -
+
+      - name: Apply deployment
+        run: |
+          envsubst < csc/deployment_template.yml | oc apply -f -
+          oc rollout status deployment/turva-back --timeout=300s

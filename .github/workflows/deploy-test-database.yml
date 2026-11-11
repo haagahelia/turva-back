@@ -1,0 +1,92 @@
+name: Deploy test database
+
+on:
+  push:
+    branches:
+      - main
+      - feature/csc-rahti-cd
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: turva-test-database-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy test database to CSC Rahti
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      CSC_PROJECT: ${{ secrets.CSC_PROJECT }}
+      CSC_TOKEN: ${{ secrets.CSC_TOKEN }}
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          : "${CSC_PROJECT:?Missing CSC_PROJECT in the dev environment}"
+          : "${CSC_TOKEN:?Missing CSC_TOKEN in the dev environment}"
+          : "${POSTGRES_USER:?Missing POSTGRES_USER in the dev environment}"
+          : "${POSTGRES_PASSWORD:?Missing POSTGRES_PASSWORD in the dev environment}"
+          : "${POSTGRES_DB:?Missing POSTGRES_DB in the dev environment}"
+
+      - name: Cache CSC Rahti CLI
+        id: cache-oc
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/oc
+          key: openshift-cli-4.15.9-linux-amd64
+
+      - name: Install CSC Rahti CLI
+        if: steps.cache-oc.outputs.cache-hit != 'true'
+        run: |
+          archive="$RUNNER_TEMP/openshift-client-linux-4.15.9.tar.gz"
+          wget -O "$archive" https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.15.9/openshift-client-linux-4.15.9.tar.gz
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          mkdir -p "$HOME/.local/bin"
+          mv "$RUNNER_TEMP/oc" "$HOME/.local/bin/oc"
+
+      - name: Add CSC Rahti CLI to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Log in to CSC Rahti
+        run: |
+          oc login --token="$CSC_TOKEN" --server=https://api.2.rahti.csc.fi:6443
+          oc project "$CSC_PROJECT"
+
+      - name: Apply database credentials
+        run: |
+          umask 077
+          secret_env="$RUNNER_TEMP/test-db-secret.env"
+          trap 'rm -f "$secret_env"' EXIT
+          printf 'POSTGRESQL_USER=%s\nPOSTGRESQL_PASSWORD=%s\nPOSTGRESQL_DATABASE=%s\n' \
+            "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" > "$secret_env"
+          oc create secret generic turva-test-db-secrets \
+            --from-env-file="$secret_env" \
+            --dry-run=client -o yaml | oc apply -f -
+
+      - name: Deploy database
+        run: |
+          envsubst < csc/database_template.yml | oc apply -f -
+          oc rollout status deployment/turva-test-db --timeout=300s
+
+      - name: Initialize test database
+        run: |
+          initialized="$(oc exec deployment/turva-test-db -- \
+            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+            "SELECT to_regclass('public.info') IS NOT NULL")"
+          if [ "$initialized" = "t" ]; then
+            echo "Database schema already exists; leaving existing data unchanged."
+          else
+            oc exec -i deployment/turva-test-db -- \
+              psql --set ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              < sql/init.sql
+          fi
