@@ -3,12 +3,9 @@ import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { corsOptions } from "./config/cors";
-import { connectDB } from "./config/db";
 import { version } from "../package.json";
 
 async function bootstrap(): Promise<void> {
-  await connectDB();
-
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix("api");
   app.enableCors(corsOptions);

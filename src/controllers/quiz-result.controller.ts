@@ -6,7 +6,6 @@ import {
   Headers,
   HttpException,
   InternalServerErrorException,
-  NotFoundException,
   Param,
   Post,
   UnauthorizedException,
@@ -20,12 +19,14 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { pool } from "../config/db";
 import { verifyToken } from "../utils/verification";
+import { QuizResultService } from "../services/quiz-result.service";
 
 @Controller("quiz-result")
 @ApiTags("Quiz Result")
 export class QuizResultController {
+  constructor(private readonly quizResults: QuizResultService) {}
+
   @Post("/")
   @ApiBearerAuth("bearerAuth")
   @ApiOperation({
@@ -71,64 +72,13 @@ export class QuizResultController {
         throw new BadRequestException({ error: "Missing required fields" });
       }
 
-      const userResult = await pool.query(
-        "SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL",
-        [email]
-      );
-
-      if (userResult.rows.length === 0) {
-        throw new NotFoundException({ error: "User not found" });
-      }
-
-      const userId = userResult.rows[0].user_id;
-
-      await pool.query(
-        `INSERT INTO User_Completed_Quiz (user_id, quiz_id, score, time_spent_seconds)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (user_id, quiz_id) DO UPDATE SET
-        score = EXCLUDED.score,
-        time_spent_seconds = EXCLUDED.time_spent_seconds,
-        completed_at = CURRENT_TIMESTAMP`,
-        [userId, quiz_id, correct_answers, time_spent_seconds]
-      );
-
-      // Get world_id for the quiz
-      const quizResult = await pool.query(
-        "SELECT world_id FROM Quiz WHERE quiz_id = $1",
-        [quiz_id]
-      );
-
-      if (quizResult.rows.length === 0) {
-        throw new NotFoundException({ error: "Quiz not found" });
-      }
-
-      const worldId = quizResult.rows[0].world_id;
-
-      // Check if all quizzes in this world are completed by this user with score >= 1
-      const completionResult = await pool.query(
-        `SELECT COUNT(*) as total,
-      COUNT(ucq.quiz_id) as completed
-      FROM Quiz q
-      LEFT JOIN User_Completed_Quiz ucq
-      ON q.quiz_id = ucq.quiz_id
-      AND ucq.user_id = $1
-      WHERE q.world_id = $2`,
-        [userId, worldId]
-      );
-
-      const { total, completed } = completionResult.rows[0];
-      const worldCompleted = parseInt(total) === parseInt(completed);
-      let bonusAwarded = false;
-
-      if (worldCompleted) {
-        const bonusResult = await pool.query(
-          `INSERT INTO User_Completed_World (user_id, world_id)
-         VALUES ($1, $2)
-         ON CONFLICT (user_id, world_id) DO NOTHING`,
-          [userId, worldId]
+      const { worldCompleted, bonusAwarded } =
+        await this.quizResults.saveResult(
+          email,
+          Number(quiz_id),
+          Number(correct_answers),
+          Number(time_spent_seconds)
         );
-        bonusAwarded = (bonusResult.rowCount ?? 0) > 0;
-      }
 
       return {
         message: "Result saved successfully",
@@ -176,20 +126,7 @@ export class QuizResultController {
         throw new BadRequestException({ error: "Invalid user ID" });
       }
 
-      const result = await pool.query(
-        `SELECT
-         COALESCE(SUM(score), 0) AS points,
-         COALESCE(SUM(time_spent_seconds), 0) AS total_time_seconds
-       FROM User_Completed_Quiz
-       WHERE user_id = $1`,
-        [user_id]
-      );
-
-      const stats = result.rows[0];
-      return {
-        points: parseInt(stats.points, 10),
-        totalTimeSeconds: parseInt(stats.total_time_seconds, 10),
-      };
+      return await this.quizResults.getStats(Number(user_id));
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error retrieving quiz statistics:", err);
@@ -219,22 +156,7 @@ export class QuizResultController {
         throw new BadRequestException({ error: "Invalid user ID" });
       }
 
-      const result = await pool.query(
-        `SELECT 
-         uc.quiz_id,
-         q.quiz_name_fi,
-         q.quiz_name_en,
-         uc.score,
-         uc.time_spent_seconds,
-         uc.completed_at
-       FROM User_Completed_Quiz uc
-       JOIN Quiz q ON uc.quiz_id = q.quiz_id
-       WHERE uc.user_id = $1
-       ORDER BY uc.completed_at DESC`,
-        [user_id]
-      );
-
-      return result.rows;
+      return this.quizResults.getHistory(Number(user_id));
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error fetching quiz history:", err);

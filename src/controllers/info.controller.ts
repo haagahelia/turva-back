@@ -19,11 +19,13 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { pool } from "../config/db";
+import { InfoService } from "../services/info.service";
 
 @Controller("info")
 @ApiTags("Info Page")
 export class InfoController {
+  constructor(private readonly info: InfoService) {}
+
   @Get("/")
   @ApiOperation({
     summary: "Returns all info pages",
@@ -33,8 +35,7 @@ export class InfoController {
   @ApiResponse({ status: 500, description: "Database query failed" })
   async getAllInfoPages() {
     try {
-      const result = await pool.query("SELECT * FROM info ORDER BY id;");
-      return result.rows;
+      return this.info.findAll();
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
@@ -66,13 +67,11 @@ export class InfoController {
         throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const result = await pool.query("SELECT * FROM info WHERE id = $1", [
-        numericId,
-      ]);
-      if (result.rowCount === 0) {
+      const result = await this.info.findById(numericId);
+      if (!result) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return result.rows[0];
+      return result;
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
@@ -104,14 +103,11 @@ export class InfoController {
         throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const result = await pool.query(
-        "DELETE FROM info WHERE id = $1 RETURNING *",
-        [numericId]
-      );
-      if (result.rowCount === 0) {
+      const deleted = await this.info.deleteById(numericId);
+      if (!deleted) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return { message: "Deleted successfully", deleted: result.rows[0] };
+      return { message: "Deleted successfully", deleted };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Delete failed", err);
@@ -146,11 +142,8 @@ export class InfoController {
           error: "Title or content missing",
         });
       }
-      const result = await pool.query(
-        "INSERT INTO info (title, content) VALUES ($1, $2) RETURNING *",
-        [title, content]
-      );
-      return result.rows[0];
+      const created = await this.info.create(title, content);
+      return created;
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Insert failed", err);
@@ -203,14 +196,11 @@ export class InfoController {
           error: "Title or content missing",
         });
       }
-      const result = await pool.query(
-        "UPDATE info SET title = $1, content = $2, created_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *",
-        [title, content, numericId]
-      );
-      if (result.rowCount === 0) {
+      const updated = await this.info.update(numericId, title, content);
+      if (!updated) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return { message: "Updated successfully", updated: result.rows[0] };
+      return { message: "Updated successfully", updated };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Update failed:", err);
