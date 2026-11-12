@@ -37,7 +37,7 @@ This guide is a handoff for developers who need to continue working on the Turva
 **Technology stack**
 
 - Node.js, TypeScript, NestJS (Express platform)
-- PostgreSQL via `pg`
+- PostgreSQL via Drizzle ORM and the `pg` connection pool
 - JWT auth via `jsonwebtoken`
 - OTP hashing via `bcryptjs`
 - Email sending via `nodemailer` (Ethereal test SMTP)
@@ -45,15 +45,27 @@ This guide is a handoff for developers who need to continue working on the Turva
 
 ## 3. Application Structure
 
-**High-level request flow**
+**Execution architecture**
 
+```mermaid
+flowchart TD
+    request["HTTP request"] --> app["NestJS application<br/>CORS and /api prefix"]
+    app --> controller["Controller"]
+    controller --> service["Application service<br/>ServicesModule"]
+    service --> repository["Domain repository<br/>RepositoriesModule"]
+    repository --> database["DatabaseModule<br/>Drizzle ORM"]
+    database --> postgres["PostgreSQL<br/>pg connection pool"]
+    postgres --> database
+    database --> repository
+    repository --> service
+    service --> controller
+    controller --> response["HTTP response"]
 ```
-Request
-  -> CORS middleware
-  -> Nest controller
-  -> SQL via pg Pool
-  -> Response
-```
+
+Each layer delegates to the next: controllers handle HTTP concerns, services
+coordinate application behavior, repositories contain persistence queries, and
+the `DatabaseModule` provides the Drizzle connection. Results return through
+the same layers to the HTTP response.
 
 **Routing**
 
@@ -62,13 +74,24 @@ Request
 
 **Data access**
 
-- All database calls are direct SQL queries using `pg.Pool` from [src/config/db.ts](src/config/db.ts).
+- Controllers call application services; they do not inject the database or
+  repositories.
+- Services use domain repositories for persistence. Drizzle queries are
+  contained in [src/database/repositories](src/database/repositories).
+- [RepositoriesModule](src/database/repositories/repositories.module.ts)
+  imports [DatabaseModule](src/database/database.module.ts); the
+  [ServicesModule](src/services/services.module.ts) exports services to
+  `AppModule` without exposing repositories to controllers.
+- [src/config/db.ts](src/config/db.ts) provides the PostgreSQL connection pool
+  used by Drizzle.
 
 ## 4. Startup and Runtime
 
 **Entry point**
 
-- [src/main.ts](src/main.ts) loads env vars, configures the NestJS application, connects to DB, and starts the server on port `3000`.
+- [src/main.ts](src/main.ts) loads env vars, configures the NestJS application,
+  and starts the server on port `3000`. Database initialization and pending
+  migrations are handled by `DatabaseModule`.
 - Nest CLI configuration is in [nest-cli.json](nest-cli.json); run `npm run start:dev` for watch mode and `npm run build` to compile to `dist/`.
 
 **Swagger**
@@ -79,7 +102,12 @@ Request
 
 **Schema source**
 
-- All tables and seed data are defined in [sql/init.sql](sql/init.sql).
+- Table definitions are code-first in [src/database/schema.ts](src/database/schema.ts).
+- Generate and review schema migrations with `npm run db:generate`; apply them
+  with `npm run db:migrate`. [DatabaseModule](src/database/database.module.ts)
+  also applies pending migrations when the app starts.
+- [sql/init.sql](sql/init.sql) is retained for local bootstrap and seed data;
+  future schema changes belong in the Drizzle schema and generated migrations.
 
 **Key tables used by the API**
 
@@ -180,7 +208,8 @@ Controller implementations are in [src/controllers](src/controllers).
 
 **docker-compose**
 
-- [docker-compose.yml](docker-compose.yml) runs app + Postgres and seeds data from [sql/init.sql](sql/init.sql).
+- [docker-compose.yml](docker-compose.yml) runs app + Postgres; the SQL
+  bootstrap provides local seed data, and the app applies Drizzle migrations.
 
 **CI**
 
@@ -200,8 +229,9 @@ Controller implementations are in [src/controllers](src/controllers).
 
 ## 10. Not Present in This Repo
 
-- No ORM or migration tool. Schema is defined in [sql/init.sql](sql/init.sql).
-- No service or repository layer; logic is inside controller methods.
+- No feature-specific NestJS module per domain; controllers are registered in
+  `AppModule`, with application services and repositories grouped in their
+  respective modules.
 - No explicit role-based access control or privileged-route guards.
 - No background workers, queues, or scheduled jobs.
 - No monitoring or tracing integration.
@@ -219,6 +249,10 @@ Controller implementations are in [src/controllers](src/controllers).
 - World bonus controller: [src/controllers/world-bonus.controller.ts](src/controllers/world-bonus.controller.ts)
 - Crisis team controller: [src/controllers/crisis-team.controller.ts](src/controllers/crisis-team.controller.ts)
 - Physical reward controller: [src/controllers/physical-reward.controller.ts](src/controllers/physical-reward.controller.ts)
+- Services module: [src/services/services.module.ts](src/services/services.module.ts)
+- Repositories module: [src/database/repositories/repositories.module.ts](src/database/repositories/repositories.module.ts)
+- Database module: [src/database/database.module.ts](src/database/database.module.ts)
+- Database repositories: [src/database/repositories](src/database/repositories)
 - DB config: [src/config/db.ts](src/config/db.ts)
 - CORS config: [src/config/cors.ts](src/config/cors.ts)
 - Auth helpers: [src/utils/verification.ts](src/utils/verification.ts)

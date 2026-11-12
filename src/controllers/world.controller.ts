@@ -22,8 +22,8 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { pool } from "../config/db";
-import { verifyAdminToken } from "@/utils/verification";
+import { WorldService } from "../services/world.service";
+import { VerificationService } from "../services/verification.service";
 
 // PostgreSQL INTEGER upper bound; larger ids can never exist
 const MAX_ID = 2147483647;
@@ -39,6 +39,11 @@ const parseWorldId = (id: string): number => {
 @Controller("world")
 @ApiTags("World")
 export class WorldController {
+  constructor(
+    private readonly worlds: WorldService,
+    private readonly verification: VerificationService
+  ) {}
+
   @Get("/")
   @ApiOperation({
     summary: "Returns all worlds",
@@ -48,10 +53,7 @@ export class WorldController {
   @ApiResponse({ status: 500, description: "Database query failed" })
   async getAllWorlds() {
     try {
-      const result = await pool.query(
-        "SELECT * FROM World WHERE deleted_at IS NULL ORDER BY order_number;"
-      );
-      return result.rows;
+      return this.worlds.findAll();
     } catch (err) {
       console.error("Error in query:", err);
       throw new InternalServerErrorException({
@@ -73,16 +75,13 @@ export class WorldController {
   async getWorldById(@Param("id") id: string) {
     const worldId = parseWorldId(id);
 
-    const result = await pool.query(
-      "SELECT * FROM World WHERE world_id = $1 AND deleted_at IS NULL",
-      [worldId]
-    );
+    const result = await this.worlds.findById(worldId);
 
-    if (result.rowCount === 0) {
+    if (!result) {
       throw new NotFoundException({ error: "ID not found" });
     }
 
-    return result.rows[0];
+    return result;
   }
 
   @Post("/")
@@ -119,7 +118,7 @@ export class WorldController {
     @Body() body: Record<string, any>,
     @Headers("authorization") authorization?: string
   ) {
-    await verifyAdminToken(authorization);
+    await this.verification.verifyAdminToken(authorization);
 
     const { organization_id, world_name_fi, world_name_en, order_number } =
       body;
@@ -137,15 +136,12 @@ export class WorldController {
       throw new BadRequestException({ error: "Invalid world fields" });
     }
 
-    const result = await pool.query(
-      `INSERT INTO World
-        (organization_id, world_name_fi, world_name_en, order_number)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *`,
-      [organization_id, world_name_fi, world_name_en, order_number]
+    return this.worlds.create(
+      organization_id,
+      world_name_fi,
+      world_name_en,
+      order_number
     );
-
-    return result.rows[0];
   }
 
   @Put("/:id")
@@ -184,7 +180,7 @@ export class WorldController {
     @Headers("authorization") authorization?: string
   ) {
     try {
-      await verifyAdminToken(authorization);
+      await this.verification.verifyAdminToken(authorization);
 
       const worldId = parseWorldId(id);
 
@@ -215,20 +211,17 @@ export class WorldController {
         });
       }
 
-      const result = await pool.query(
-        `UPDATE World
-        SET world_name_fi = $1,
-            world_name_en = $2,
-            order_number = $3
-        WHERE world_id = $4 AND deleted_at IS NULL
-        RETURNING *`,
-        [world_name_fi, world_name_en, order_number, worldId]
+      const updated = await this.worlds.update(
+        worldId,
+        world_name_fi,
+        world_name_en,
+        order_number
       );
 
-      if (result.rowCount === 0) {
+      if (!updated) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return { message: "Updated successfully", updated: result.rows[0] };
+      return { message: "Updated successfully", updated };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Update failed:", err);
@@ -256,45 +249,24 @@ export class WorldController {
     @Headers("authorization") authorization?: string
   ) {
     try {
-      await verifyAdminToken(authorization);
+      await this.verification.verifyAdminToken(authorization);
 
       const worldId = parseWorldId(id);
 
-      // The quiz check and the delete happen in one statement, so a quiz
-      // added at the same moment cannot slip through.
-      const result = await pool.query(
-        `UPDATE World
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE world_id = $1
-          AND deleted_at IS NULL
-          AND NOT EXISTS (
-            SELECT 1 FROM Quiz WHERE world_id = $1 AND deleted_at IS NULL
-          )
-        RETURNING *`,
-        [worldId]
-      );
+      const result = await this.worlds.softDelete(worldId);
 
-      if (result.rowCount === 0) {
-        const quizzes = await pool.query(
-          `SELECT
-            EXISTS (
-              SELECT 1 FROM World WHERE world_id = $1 AND deleted_at IS NULL
-            ) AS world_exists,
-            (SELECT COUNT(*) FROM Quiz WHERE world_id = $1 AND deleted_at IS NULL)::int AS quiz_count`,
-          [worldId]
-        );
-        const { world_exists, quiz_count } = quizzes.rows[0];
+      if (result.kind === "not-found") {
+        throw new NotFoundException({ error: "ID not found" });
+      }
 
-        if (!world_exists) {
-          throw new NotFoundException({ error: "ID not found" });
-        }
+      if (result.kind === "has-active-quizzes") {
         throw new ConflictException({
-          error: `World still has ${quiz_count} active quiz(zes). Delete or move them first.`,
-          quiz_count,
+          error: `World still has ${result.count} active quiz(zes). Delete or move them first.`,
+          quiz_count: result.count,
         });
       }
 
-      return { message: "Deleted successfully", deleted: result.rows[0] };
+      return { message: "Deleted successfully", deleted: result.world };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Delete failed:", err);

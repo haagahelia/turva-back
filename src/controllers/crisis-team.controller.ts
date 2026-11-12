@@ -21,12 +21,17 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { pool } from "../config/db";
-import { verifyAdminToken } from "@/utils/verification";
+import { CrisisTeamService } from "../services/crisis-team.service";
+import { VerificationService } from "../services/verification.service";
 
 @Controller("crisis-team")
 @ApiTags("Crisis Team")
 export class CrisisTeamController {
+  constructor(
+    private readonly crisisTeam: CrisisTeamService,
+    private readonly verification: VerificationService
+  ) {}
+
   @Get("/")
   @ApiOperation({
     summary: "Returns all crisis team contacts",
@@ -37,10 +42,7 @@ export class CrisisTeamController {
   @ApiResponse({ status: 500, description: "Database query failed" })
   async getAllCrisisTeamContacts() {
     try {
-      const result = await pool.query(
-        "SELECT * FROM CrisisTeam WHERE deleted_at IS NULL ORDER BY order_number;"
-      );
-      return result.rows;
+      return this.crisisTeam.findAll();
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
@@ -72,14 +74,11 @@ export class CrisisTeamController {
         throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const result = await pool.query(
-        "SELECT * FROM CrisisTeam WHERE contact_id = $1 AND deleted_at IS NULL",
-        [numericId]
-      );
-      if (result.rowCount === 0) {
+      const result = await this.crisisTeam.findById(numericId);
+      if (!result) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return result.rows[0];
+      return result;
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
@@ -111,21 +110,18 @@ export class CrisisTeamController {
     @Headers("authorization") authorization?: string
   ) {
     try {
-      await verifyAdminToken(authorization);
+      await this.verification.verifyAdminToken(authorization);
       const numericId = Number(id);
 
       if (!Number.isInteger(numericId) || numericId <= 0) {
         throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const result = await pool.query(
-        "UPDATE CrisisTeam SET deleted_at = CURRENT_TIMESTAMP WHERE contact_id = $1 AND deleted_at IS NULL RETURNING *",
-        [numericId]
-      );
-      if (result.rowCount === 0) {
+      const deleted = await this.crisisTeam.softDelete(numericId);
+      if (!deleted) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return { message: "Deleted successfully", deleted: result.rows[0] };
+      return { message: "Deleted successfully", deleted };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Delete failed", err);
@@ -172,7 +168,7 @@ export class CrisisTeamController {
     @Headers("authorization") authorization?: string
   ) {
     try {
-      await verifyAdminToken(authorization);
+      await this.verification.verifyAdminToken(authorization);
       const { organization_id, name_fi, name_en, role_fi, role_en, phone } =
         body;
       if (
@@ -188,13 +184,15 @@ export class CrisisTeamController {
             "organization_id, name_fi, name_en, role_fi, role_en, and phone are required",
         });
       }
-      const result = await pool.query(
-        `INSERT INTO CrisisTeam (organization_id, name_fi, name_en, role_fi, role_en, phone, order_number) 
-             VALUES ($1, $2, $3, $4, $5, $6, (SELECT COALESCE(MAX(order_number), 0) + 1 FROM CrisisTeam)) 
-             RETURNING *`,
-        [organization_id, name_fi, name_en, role_fi, role_en, phone]
+      const created = await this.crisisTeam.create(
+        organization_id,
+        name_fi,
+        name_en,
+        role_fi,
+        role_en,
+        phone
       );
-      return result.rows[0];
+      return created;
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Insert failed", err);
@@ -241,7 +239,7 @@ export class CrisisTeamController {
     @Headers("authorization") authorization?: string
   ) {
     try {
-      await verifyAdminToken(authorization);
+      await this.verification.verifyAdminToken(authorization);
       const numericId = Number(id);
 
       if (!Number.isInteger(numericId) || numericId <= 0) {
@@ -254,14 +252,18 @@ export class CrisisTeamController {
           error: "name_fi, name_en, role_fi, role_en, and phone are required",
         });
       }
-      const result = await pool.query(
-        "UPDATE CrisisTeam SET name_fi = $1, name_en = $2, role_fi = $3, role_en = $4, phone = $5 WHERE contact_id = $6 AND deleted_at IS NULL RETURNING *",
-        [name_fi, name_en, role_fi, role_en, phone, numericId]
+      const updated = await this.crisisTeam.update(
+        numericId,
+        name_fi,
+        name_en,
+        role_fi,
+        role_en,
+        phone
       );
-      if (result.rowCount === 0) {
+      if (!updated) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return { message: "Updated successfully", updated: result.rows[0] };
+      return { message: "Updated successfully", updated };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Update failed:", err);
