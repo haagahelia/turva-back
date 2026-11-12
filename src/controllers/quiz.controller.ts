@@ -22,8 +22,8 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { pool } from "../config/db";
-import { verifyAdminToken } from "@/utils/verification";
+import { QuizService } from "../services/quiz.service";
+import { VerificationService } from "../services/verification.service";
 
 // Shortened example of the quiz_content format used in sql/init.sql
 const QUIZ_CONTENT_EXAMPLE = {
@@ -93,6 +93,11 @@ const parseQuizId = (id: string): number => {
 @Controller("quiz")
 @ApiTags("Quiz")
 export class QuizController {
+  constructor(
+    private readonly quizzes: QuizService,
+    private readonly verification: VerificationService
+  ) {}
+
   @Get("/")
   @ApiOperation({
     summary: "Returns all quizzes",
@@ -102,10 +107,7 @@ export class QuizController {
   @ApiResponse({ status: 500, description: "Database query failed" })
   async getAllQuizzes() {
     try {
-      const result = await pool.query(
-        "SELECT * FROM Quiz WHERE deleted_at IS NULL ORDER BY order_number;"
-      );
-      return result.rows;
+      return this.quizzes.findAll();
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
@@ -136,14 +138,11 @@ export class QuizController {
         throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const result = await pool.query(
-        "SELECT * FROM quiz WHERE quiz_id = $1 AND deleted_at IS NULL",
-        [id]
-      );
-      if (result.rowCount === 0) {
+      const result = await this.quizzes.findById(Number(id));
+      if (result.length === 0) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return result.rows;
+      return result;
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
@@ -177,14 +176,11 @@ export class QuizController {
         throw new BadRequestException({ error: "Invalid ID format" });
       }
 
-      const result = await pool.query(
-        "SELECT * FROM Quiz WHERE world_id = $1 AND deleted_at IS NULL ORDER BY order_number",
-        [world_id]
-      );
-      if (result.rowCount === 0) {
+      const result = await this.quizzes.findByWorldId(Number(world_id));
+      if (result.length === 0) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return result.rows;
+      return result;
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error in query:", err);
@@ -233,7 +229,7 @@ export class QuizController {
     @Headers("authorization") authorization?: string
   ) {
     try {
-      await verifyAdminToken(authorization);
+      await this.verification.verifyAdminToken(authorization);
 
       const {
         world_id,
@@ -267,21 +263,13 @@ export class QuizController {
         });
       }
 
-      const result = await pool.query(
-        `INSERT INTO Quiz
-          (world_id, quiz_name_fi, quiz_name_en, quiz_content, order_number)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING *`,
-        [
-          world_id,
-          quiz_name_fi,
-          quiz_name_en,
-          JSON.stringify(quiz_content ?? {}),
-          order_number,
-        ]
+      return await this.quizzes.create(
+        Number(world_id),
+        quiz_name_fi,
+        quiz_name_en,
+        quiz_content ?? {},
+        Number(order_number)
       );
-
-      return result.rows[0];
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Insert failed", err);
@@ -319,7 +307,7 @@ export class QuizController {
     @Headers("content-type") contentType?: string
   ) {
     try {
-      await verifyAdminToken(authorization);
+      await this.verification.verifyAdminToken(authorization);
       const quizId = parseQuizId(id);
 
       // Only accept a JSON object or array. Other content types (e.g. form
@@ -334,17 +322,11 @@ export class QuizController {
         });
       }
 
-      const result = await pool.query(
-        `UPDATE Quiz
-        SET quiz_content = $1
-        WHERE quiz_id = $2 AND deleted_at IS NULL
-        RETURNING *`,
-        [JSON.stringify(body), quizId]
-      );
-      if (result.rowCount === 0) {
+      const updated = await this.quizzes.updateContent(quizId, body);
+      if (!updated) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return { message: "Updated successfully", updated: result.rows[0] };
+      return { message: "Updated successfully", updated };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Update failed:", err);
@@ -370,19 +352,13 @@ export class QuizController {
     @Headers("authorization") authorization?: string
   ) {
     try {
-      await verifyAdminToken(authorization);
+      await this.verification.verifyAdminToken(authorization);
       const quizId = parseQuizId(id);
-      const result = await pool.query(
-        `UPDATE Quiz
-        SET deleted_at = CURRENT_TIMESTAMP
-        WHERE quiz_id = $1 AND deleted_at IS NULL
-        RETURNING *`,
-        [quizId]
-      );
-      if (result.rowCount === 0) {
+      const deleted = await this.quizzes.softDelete(quizId);
+      if (!deleted) {
         throw new NotFoundException({ error: "ID not found" });
       }
-      return { message: "Deleted successfully", deleted: result.rows[0] };
+      return { message: "Deleted successfully", deleted };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Delete failed", err);

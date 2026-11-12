@@ -1,6 +1,6 @@
 import { createApp } from "./create-app";
 import request, { Response } from "supertest";
-import { connectDB, pool } from "../src/config/db";
+import { pool } from "../src/config/db";
 import { INestApplication } from "@nestjs/common";
 import {
   beforeAll,
@@ -39,8 +39,6 @@ describe("Quiz api integration tests", () => {
   let testWorldId: number;
 
   beforeAll(async () => {
-    await connectDB();
-
     // ADMIN AND TOKEN, LINE 30 - 45
     const suffix = randomUUID();
     const username = `quiz-admin-${suffix}`;

@@ -1,6 +1,6 @@
 import { createApp } from "./create-app";
 import request from "supertest";
-import { connectDB, pool } from "../src/config/db";
+import { pool } from "../src/config/db";
 import { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { randomUUID } from "crypto";
@@ -49,7 +49,6 @@ const createQuiz = async (worldId: number): Promise<number> => {
 };
 
 beforeAll(async () => {
-  await connectDB();
   app = await createApp();
   adminToken = await createUser("admin");
   regularUserToken = await createUser("user");

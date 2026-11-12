@@ -35,25 +35,27 @@ Backend API server for the TurvaOppi
    docker compose up
    ```
 
-### Existing databases: role migration and admin access
+### Code-first schema and migrations
 
-Fresh databases created with `sql/init.sql` include the `role` column. For an
-existing database, run the migration once from the repository root. It is safe
-to re-run.
-
-Local Docker database (uses the user and database name from your `.env`):
+The Drizzle schema in [src/database/schema.ts](src/database/schema.ts) is the
+source for schema changes. To make a change, edit the schema and generate a
+versioned migration:
 
 ```bash
-docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < sql/migrations/001_add_user_role.sql
+npm run db:generate -- --name add-a-description
 ```
 
-Rahti test database: it is only reachable inside the Rahti project, not from
-your computer, so run `psql` inside its pod with `oc` (after `oc login` and
-`oc project <your-project>`):
+Review and commit the generated files in `drizzle/` with the schema change.
+`DatabaseModule` applies pending migrations at application startup; run
+`npm run db:migrate` to apply them manually. `drizzle.config.ts` reads the
+database connection settings from `.env`.
 
-```bash
-oc exec -i deployment/turva-test-db -- sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRESQL_USER" -d "$POSTGRESQL_DATABASE"' < sql/migrations/001_add_user_role.sql
-```
+The baseline migration is safe to apply to databases already initialized from
+the legacy SQL bootstrap. `sql/init.sql` remains the local/test bootstrap,
+including its original table DDL and sample data, for compatibility; make
+future schema changes in the Drizzle schema and migrations. The older
+`sql/migrations/001_add_user_role.sql` is retained for deployments that have
+not yet adopted the Drizzle migration baseline.
 
 To make a user admin, the user must have registered first. Open a `psql`
 session on the target database:
@@ -115,12 +117,45 @@ Rahti one.**
 
 Remove the database afterwards with `docker rm -f turva-back-testdb`.
 
+### Database access
+
+The request execution path follows the Repository pattern:
+
+```mermaid
+flowchart TD
+    request["HTTP request"] --> app["NestJS application<br/>CORS and /api prefix"]
+    app --> controller["Controller"]
+    controller --> service["Application service<br/>ServicesModule"]
+    service --> repository["Domain repository<br/>RepositoriesModule"]
+    repository --> database["DatabaseModule<br/>Drizzle ORM"]
+    database --> postgres["PostgreSQL<br/>pg connection pool"]
+    postgres --> database
+    database --> repository
+    repository --> service
+    service --> controller
+    controller --> response["HTTP response"]
+```
+
+Controllers handle HTTP concerns and call services; services coordinate
+application behavior through domain repositories. Repositories contain the
+Drizzle queries and are provided to services by
+[RepositoriesModule](src/database/repositories/repositories.module.ts).
+[ServicesModule](src/services/services.module.ts) exports application services
+to `AppModule` without exposing repositories to controllers.
+
+Table definitions live in [src/database/schema.ts](src/database/schema.ts),
+and [DatabaseModule](src/database/database.module.ts) provides the Drizzle
+connection. Schema changes are applied with generated Drizzle migrations
+instead of automatic schema synchronization.
+
 ### Available Scripts
 
 - `npm run dev` or `npm run start:dev` - Run the NestJS CLI in watch mode
 - `npm run build` - Build the application with the NestJS CLI to `dist/`
 - `npm run start` - Build and start the application
 - `npm run start:prod` - Run the compiled application
+- `npm run db:generate -- --name <description>` - Generate a migration from schema changes
+- `npm run db:migrate` - Apply pending migrations
 - `npm test` - Run Jest tests
 - `npm run lint` - Run ESLint
 

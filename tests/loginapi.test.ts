@@ -1,6 +1,6 @@
 import { createApp } from "./create-app";
 import request, { Response } from "supertest";
-import { connectDB, pool } from "../src/config/db";
+import { pool } from "../src/config/db";
 import { INestApplication } from "@nestjs/common";
 
 let app: INestApplication;
@@ -27,7 +27,6 @@ describe("GET /api/ping", () => {
 // Login api test ------------------------------------------------------------------------------------------------------------------------
 describe("POST /api/auth/login", () => {
   beforeAll(async () => {
-    await connectDB();
     await pool.query(`
             INSERT INTO TurvaUser (organization_id, profile_name, email_address)
             VALUES ( 1, 'testerAccount1', 'tester10@turva.back.fi')
@@ -90,9 +89,7 @@ describe("POST /api/auth/login", () => {
 });
 
 describe("POST api/auth/verify", () => {
-  beforeAll(async () => {
-    await connectDB();
-  });
+  beforeAll(async () => {});
 
   it("Should fail without a pin", async () => {
     const emptyPayload = {};

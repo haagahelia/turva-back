@@ -3,7 +3,6 @@ import {
   Controller,
   HttpCode,
   BadRequestException,
-  ConflictException,
   Post,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -11,15 +10,21 @@ import { ApiBody, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { generatePin } from "../utils/pinGenerator";
 import bcrypt from "bcryptjs";
-import { validateEmail, verifyPin, verifyUser } from "../utils/verification";
-import { pool } from "../config/db";
+import { validateEmail } from "../utils/verification";
 import { generateToken } from "../utils/tokenGenerator";
 import { sendEmail } from "../utils/emailer";
+import { AuthService } from "../services/auth.service";
+import { VerificationService } from "../services/verification.service";
 
 // TODO?: Add email confirmation before completing register??
 @Controller("auth")
 @ApiTags("Login")
 export class AuthController {
+  constructor(
+    private readonly auth: AuthService,
+    private readonly verification: VerificationService
+  ) {}
+
   @Post("/register")
   @ApiOperation({
     summary: "Register a user account",
@@ -58,25 +63,7 @@ export class AuthController {
     if (!isValidEmail) {
       throw new BadRequestException({ error: "Wrong email address" });
     }
-    const duplicateQuery = `SELECT profile_name FROM TurvaUser WHERE profile_name = $1`;
-    const results = await pool.query(duplicateQuery, [username]);
-
-    if (results.rows.length != 0) {
-      const { existing_profile_name } = results.rows[0];
-
-      if (existing_profile_name) {
-        const isDuplicate = await verifyUser(userEmail, existing_profile_name);
-        if (isDuplicate) {
-          throw new ConflictException({
-            error: "Email or username already in use",
-          });
-        }
-      }
-    }
-
-    const registerQuery = `INSERT INTO TurvaUser (organization_id, profile_name, email_address) VALUES ($1, $2, $3)`;
-    const values = [organizationId, username, userEmail];
-    await pool.query(registerQuery, values);
+    await this.auth.registerUser(organizationId, username, userEmail);
     return { message: "Account created!" };
   }
 
@@ -115,15 +102,21 @@ export class AuthController {
     if (!isValidEmail) {
       throw new BadRequestException({ error: "Email address is not valid" });
     }
-    const verifyStatus = await verifyUser(userEmail, username);
+    const verifyStatus = await this.verification.verifyUser(
+      userEmail,
+      username
+    );
     if (verifyStatus) {
       const oneTimePin = generatePin();
       const createdAt = new Date();
       const validUntil = new Date(createdAt.getTime() + 30 * 60 * 1000);
-      const otpQuery = `INSERT INTO email_otps (email, otp_code, valid_until, created_at) VALUES ($1, $2, $3, $4)`;
       const hashedPin = await bcrypt.hash(oneTimePin, 12);
-      const values = [userEmail, hashedPin, validUntil, createdAt];
-      await pool.query(otpQuery, values);
+      await this.auth.saveLoginCode(
+        userEmail,
+        hashedPin,
+        validUntil,
+        createdAt
+      );
       console.log(oneTimePin);
       await sendEmail(userEmail, oneTimePin);
       return { message: "Login email sent to " + userEmail };
@@ -164,7 +157,10 @@ export class AuthController {
       });
     }
 
-    const isVerified = await verifyPin(email, verificationCode);
+    const isVerified = await this.verification.verifyPin(
+      email,
+      verificationCode
+    );
 
     if (isVerified) {
       const token = generateToken(email, username);

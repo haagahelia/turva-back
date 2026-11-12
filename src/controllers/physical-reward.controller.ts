@@ -1,11 +1,9 @@
 import {
   Controller,
-  ForbiddenException,
   Get,
   Headers,
   HttpException,
   InternalServerErrorException,
-  NotFoundException,
   Param,
   Post,
   Res,
@@ -21,9 +19,8 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { pool } from "../config/db";
+import { PhysicalRewardService } from "../services/physical-reward.service";
 import { verifyToken } from "../utils/verification";
-import crypto from "crypto";
 
 const successHtml = (profileName: string) => `
 <!DOCTYPE html>
@@ -175,6 +172,8 @@ const notFoundHtml = () => `
 @Controller("physical-reward")
 @ApiTags("Physical Reward")
 export class PhysicalRewardController {
+  constructor(private readonly physicalRewards: PhysicalRewardService) {}
+
   @Post("/claim")
   @ApiBearerAuth("bearerAuth")
   @ApiOperation({
@@ -213,56 +212,12 @@ export class PhysicalRewardController {
       }
       const email = decoded.email;
 
-      const userResult = await pool.query(
-        "SELECT user_id FROM TurvaUser WHERE email_address = $1 AND deleted_at IS NULL",
-        [email]
-      );
-      if (userResult.rows.length === 0) {
-        throw new NotFoundException({ error: "User not found" });
-      }
-      const userId = userResult.rows[0].user_id;
-
-      const totalWorldsResult = await pool.query(
-        "SELECT COUNT(*) as total FROM World"
-      );
-      const totalWorlds = parseInt(totalWorldsResult.rows[0].total, 10);
-
-      const completedResult = await pool.query(
-        "SELECT COUNT(*) as completed FROM User_Completed_World WHERE user_id = $1",
-        [userId]
-      );
-      const completedWorlds = parseInt(completedResult.rows[0].completed, 10);
-
-      if (completedWorlds < totalWorlds || totalWorlds === 0) {
-        throw new ForbiddenException({
-          error: "Not all worlds completed",
-          completedWorlds,
-          totalWorlds,
-        });
-      }
-
-      const existingReward = await pool.query(
-        "SELECT reward_code, claimed_at FROM Physical_Reward WHERE user_id = $1",
-        [userId]
-      );
-
-      if (existingReward.rows.length > 0) {
-        const { reward_code, claimed_at } = existingReward.rows[0];
-        if (claimed_at) {
-          res.status(200);
-          return { alreadyClaimed: true, reward_code: null };
-        }
+      const { created, ...result } = await this.physicalRewards.claim(email);
+      if (!created) {
         res.status(200);
-        return { alreadyClaimed: false, reward_code };
       }
 
-      const rewardCode = crypto.randomUUID();
-      await pool.query(
-        "INSERT INTO Physical_Reward (user_id, reward_code) VALUES ($1, $2)",
-        [userId, rewardCode]
-      );
-
-      return { alreadyClaimed: false, reward_code: rewardCode };
+      return result;
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error claiming reward:", err);
@@ -298,34 +253,21 @@ export class PhysicalRewardController {
     @Res({ passthrough: true }) res: Response
   ) {
     try {
-      const result = await pool.query(
-        `SELECT pr.reward_id, pr.claimed_at, tu.profile_name
-       FROM Physical_Reward pr
-       JOIN TurvaUser tu ON pr.user_id = tu.user_id
-       WHERE pr.reward_code = $1`,
-        [code]
-      );
+      const result = await this.physicalRewards.verify(code);
 
-      if (result.rows.length === 0) {
+      if (result.kind === "not-found") {
         res.setHeader("Content-Type", "text/html");
         res.status(404);
         return notFoundHtml();
       }
 
-      const { reward_id, claimed_at, profile_name } = result.rows[0];
-
-      if (claimed_at) {
+      if (result.kind === "already-claimed") {
         res.setHeader("Content-Type", "text/html");
-        return alreadyClaimedHtml(profile_name, claimed_at);
+        return alreadyClaimedHtml(result.profileName, result.claimedAt);
       }
 
-      await pool.query(
-        "UPDATE Physical_Reward SET claimed_at = CURRENT_TIMESTAMP WHERE reward_id = $1",
-        [reward_id]
-      );
-
       res.setHeader("Content-Type", "text/html");
-      return successHtml(profile_name);
+      return successHtml(result.profileName);
     } catch (err) {
       console.error("Error verifying reward:", err);
       res.setHeader("Content-Type", "text/html");

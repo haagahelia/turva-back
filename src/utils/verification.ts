@@ -1,38 +1,5 @@
-import bcrypt from "bcryptjs";
-import { pool } from "../config/db";
-import jwt, { TokenExpiredError } from "jsonwebtoken";
-import { JwtPayload } from "jsonwebtoken";
-import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
-
-// Verifies the JWT, then checks in the database that the user is an active admin
-export const verifyAdminToken = async (
-  authorization?: string
-): Promise<JwtPayload> => {
-  const decoded = verifyToken(authorization);
-
-  if (
-    typeof decoded.email !== "string" ||
-    typeof decoded.username !== "string"
-  ) {
-    throw new UnauthorizedException({ error: "Token is invalid" });
-  }
-
-  const result = await pool.query(
-    `SELECT 1
-    FROM TurvaUser
-    WHERE email_address = $1
-      AND profile_name = $2
-      AND role = 'admin'
-      AND deleted_at IS NULL`,
-    [decoded.email, decoded.username]
-  );
-
-  if (result.rowCount === 0) {
-    throw new ForbiddenException({ error: "Admin access required" });
-  }
-
-  return decoded;
-};
+import jwt, { JwtPayload, TokenExpiredError } from "jsonwebtoken";
+import { UnauthorizedException } from "@nestjs/common";
 
 export const verifyToken = (authorization?: string): JwtPayload => {
   try {
@@ -61,27 +28,6 @@ export const verifyToken = (authorization?: string): JwtPayload => {
   }
 };
 
-export const verifyPin = async (
-  email: string,
-  pin: string
-): Promise<boolean> => {
-  const checkQuery: string = `SELECT otp_code, valid_until FROM email_otps WHERE email = $1 ORDER BY created_at DESC`;
-  const results = await pool.query(checkQuery, [email]);
-
-  if (results.rows.length === 0) {
-    return false;
-  }
-  const { otp_code, valid_until } = results.rows[0];
-
-  if (Date.now() > valid_until) {
-    return false;
-  }
-
-  const isCorrect: boolean = await bcrypt.compare(pin, otp_code);
-
-  return isCorrect;
-};
-
 export const validateEmail = (email: string): boolean => {
   const allowedDomain: string | undefined = process.env.TEST_DOMAIN;
   const regexp: RegExp = new RegExp(
@@ -96,26 +42,4 @@ export const validateEmail = (email: string): boolean => {
     if (allowedDomain != givenDomain) return false;
   }
   return true;
-};
-
-export const verifyUser = async (
-  email: string,
-  username: string
-): Promise<boolean> => {
-  const userQuery: string = `SELECT profile_name, email_address FROM TurvaUser WHERE profile_name = $1`;
-  const results = await pool.query(userQuery, [username]);
-
-  if (!results.rowCount) {
-    return false;
-  }
-  const { profile_name, email_address } = results.rows[0];
-
-  console.log(
-    "username " + profile_name + " email " + email_address.toString()
-  );
-  if (!email_address || !profile_name) {
-    return false;
-  }
-
-  return username === profile_name && email === email_address;
 };

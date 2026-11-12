@@ -8,11 +8,13 @@ import {
 } from "@nestjs/common";
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { pool } from "../config/db";
+import { WorldBonusService } from "../services/world-bonus.service";
 
 @Controller("world-bonus")
 @ApiTags("World Bonus")
 export class WorldBonusController {
+  constructor(private readonly worldBonus: WorldBonusService) {}
+
   @Get("/user/:user_id")
   @ApiOperation({
     summary: "Get user world bonus points",
@@ -43,17 +45,12 @@ export class WorldBonusController {
         throw new BadRequestException({ error: "Invalid user ID" });
       }
 
-      const result = await pool.query(
-        `SELECT COUNT(*) as completed_worlds
-       FROM User_Completed_World
-       WHERE user_id = $1`,
-        [user_id]
+      const worldsCompleted = await this.worldBonus.countCompletedWorlds(
+        Number(user_id)
       );
+      const bonusPoints = worldsCompleted * 10; // 10 points per completed world
 
-      const completedWorlds = parseInt(result.rows[0].completed_worlds, 10);
-      const bonusPoints = completedWorlds * 10; // 10 points per completed world
-
-      return { completedWorlds, bonusPoints };
+      return { completedWorlds: worldsCompleted, bonusPoints };
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error fetching world bonus:", err);
