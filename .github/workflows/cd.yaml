@@ -2,13 +2,12 @@ name: CD pipeline
 
 concurrency:
   group: turva-back-cd
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 on:
   push:
     branches:
       - main
-      - feature/csc-rahti-cd
   workflow_dispatch:
 
 permissions:
@@ -37,6 +36,25 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate required deployment values
+        env:
+          CSC_TOKEN: ${{ secrets.CSC_TOKEN }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        run: |
+          : "${CSC_PROJECT:?Missing CSC_PROJECT in the dev environment}"
+          : "${CSC_TOKEN:?Missing CSC_TOKEN in the dev environment}"
+          : "${POSTGRES_USER:?Missing POSTGRES_USER in the dev environment}"
+          : "${POSTGRES_PASSWORD:?Missing POSTGRES_PASSWORD in the dev environment}"
+          : "${POSTGRES_DB:?Missing POSTGRES_DB in the dev environment}"
+          : "${POSTGRES_HOST:?Missing POSTGRES_HOST in the dev environment}"
+          : "${JWT_SECRET:?Missing JWT_SECRET in the dev environment}"
+          : "${ENABLE_SWAGGER:?Missing ENABLE_SWAGGER in the dev environment variables}"
+          : "${TEST_DOMAIN:?Missing TEST_DOMAIN in the dev environment variables}"
 
       - name: Lint and build application
         run: |
@@ -96,7 +114,13 @@ jobs:
           POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          envsubst < csc/runtime_secret_template.yml | oc apply -f -
+          secret_env="$RUNNER_TEMP/turva-back-secrets.env"
+          trap 'rm -f "$secret_env"' EXIT
+          printf 'POSTGRES_USER=%s\nPOSTGRES_PASSWORD=%s\nPOSTGRES_DB=%s\nPOSTGRES_HOST=%s\nJWT_SECRET=%s\nTEST_DOMAIN=%s\n' \
+            "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" "$POSTGRES_HOST" "$JWT_SECRET" "$TEST_DOMAIN" > "$secret_env"
+          oc create secret generic turva-back-secrets \
+            --from-env-file="$secret_env" \
+            --dry-run=client -o yaml | oc apply -f -
 
       - name: Apply deployment
         run: |

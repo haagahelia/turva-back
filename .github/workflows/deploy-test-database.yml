@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/csc-rahti-cd
   workflow_dispatch:
 
 permissions:
@@ -87,6 +86,6 @@ jobs:
             echo "Database schema already exists; leaving existing data unchanged."
           else
             oc exec -i deployment/turva-test-db -- \
-              psql --set ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              psql --single-transaction --set ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
               < sql/init.sql
           fi
