@@ -23,7 +23,8 @@ export class UserController {
   @ApiBearerAuth("bearerAuth")
   @ApiOperation({
     summary: "Get user profile info",
-    description: "Returns profile name and picture URL",
+    description:
+      "Returns profile name, picture URL, email and role ('user' or 'admin')",
   })
   @ApiResponse({ status: 200, description: "OK" })
   @ApiResponse({
@@ -40,15 +41,21 @@ export class UserController {
         throw new HttpException({ error: "Token is invalid" }, 401);
       }
 
-      const email = (decoded as { email: string }).email;
+      const { email, username } = decoded as {
+        email: string;
+        username?: string;
+      };
+      // Match on email and profile name, like verifyAdminToken, so the role
+      // returned here is the one the write routes will check.
       const query = `
-      SELECT user_id, profile_name, profile_picture_url, email_address
+      SELECT user_id, profile_name, profile_picture_url, email_address, role
       FROM TurvaUser
       WHERE email_address = $1
+        AND ($2::text IS NULL OR profile_name = $2)
         AND deleted_at IS NULL
     `;
 
-      const result = await pool.query(query, [email]);
+      const result = await pool.query(query, [email, username ?? null]);
 
       if (result.rowCount === 0) {
         throw new NotFoundException({ error: "User not found" });
@@ -61,6 +68,7 @@ export class UserController {
         profileName: user.profile_name,
         profilePictureUrl: user.profile_picture_url,
         email: user.email_address,
+        role: user.role,
       };
     } catch (err) {
       if (err instanceof HttpException) throw err;

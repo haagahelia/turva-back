@@ -2,7 +2,37 @@ import bcrypt from "bcryptjs";
 import { pool } from "../config/db";
 import jwt, { TokenExpiredError } from "jsonwebtoken";
 import { JwtPayload } from "jsonwebtoken";
-import { UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
+
+// Verifies the JWT, then checks in the database that the user is an active admin
+export const verifyAdminToken = async (
+  authorization?: string
+): Promise<JwtPayload> => {
+  const decoded = verifyToken(authorization);
+
+  if (
+    typeof decoded.email !== "string" ||
+    typeof decoded.username !== "string"
+  ) {
+    throw new UnauthorizedException({ error: "Token is invalid" });
+  }
+
+  const result = await pool.query(
+    `SELECT 1
+    FROM TurvaUser
+    WHERE email_address = $1
+      AND profile_name = $2
+      AND role = 'admin'
+      AND deleted_at IS NULL`,
+    [decoded.email, decoded.username]
+  );
+
+  if (result.rowCount === 0) {
+    throw new ForbiddenException({ error: "Admin access required" });
+  }
+
+  return decoded;
+};
 
 export const verifyToken = (authorization?: string): JwtPayload => {
   try {

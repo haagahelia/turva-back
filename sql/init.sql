@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS Organization (
 -- Create User table
 CREATE TABLE IF NOT EXISTS TurvaUser (
     user_id SERIAL PRIMARY KEY,
+    role VARCHAR(20) NOT NULL DEFAULT 'user' --create roles
+        CHECK (role IN ('user', 'admin')),
     organization_id INT NOT NULL,
     profile_name VARCHAR(255) UNIQUE NOT NULL,
     email_address VARCHAR(255) NOT NULL,
