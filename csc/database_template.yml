@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: turva-test-db-data
+  labels:
+    app: turva-test-db
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: turva-test-db
+  labels:
+    app: turva-test-db
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: turva-test-db
+  template:
+    metadata:
+      labels:
+        app: turva-test-db
+    spec:
+      containers:
+        - name: postgres
+          image: quay.io/sclorg/postgresql-16-c9s:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: turva-test-db-secrets
+          readinessProbe:
+            exec:
+              command:
+                - /usr/libexec/check-container
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - /usr/libexec/check-container
+                - --live
+            initialDelaySeconds: 120
+            periodSeconds: 20
+          volumeMounts:
+            - name: database-data
+              mountPath: /var/lib/pgsql/data
+      volumes:
+        - name: database-data
+          persistentVolumeClaim:
+            claimName: turva-test-db-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: turva-test-db
+  labels:
+    app: turva-test-db
+spec:
+  type: ClusterIP
+  selector:
+    app: turva-test-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP

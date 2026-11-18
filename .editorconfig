@@ -8,6 +8,6 @@ charset = utf-8
 trim_trailing_whitespace = false
 insert_final_newline = false
 
-[*.{js,ts,tsx,jsx,json,md}]
+[*.{js,ts,tsx,jsx,json,md,yaml,yml}]
 indent_size = 2
 insert_final_newline = true

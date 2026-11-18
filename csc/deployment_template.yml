@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: turva-back
+  labels:
+    app: turva-back
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: turva-back
+  template:
+    metadata:
+      labels:
+        app: turva-back
+    spec:
+      containers:
+        - name: turva-back
+          image: image-registry.openshift-image-registry.svc:5000/${CSC_PROJECT}/turva-back:${COMMIT_SHA}
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "3000"
+            - name: ENABLE_SWAGGER
+              value: "${ENABLE_SWAGGER}"
+          envFrom:
+            - secretRef:
+                name: turva-back-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/ping
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/ping
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: turva-back
+  labels:
+    app: turva-back
+spec:
+  selector:
+    app: turva-back
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: turva-back
+  labels:
+    app: turva-back
+spec:
+  to:
+    kind: Service
+    name: turva-back
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

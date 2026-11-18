@@ -129,3 +129,38 @@ The Husky pre-commit hook formats staged JavaScript, TypeScript, JSON, Markdown,
 ### Tech Stack
 
 Developed with NestJS, TypeScript, and Node.js. The API is served under `/api`.
+
+### Deployment
+
+The CD workflow builds and deploys the `main` branch to CSC Rahti. Configure the
+GitHub Actions secrets `CSC_PROJECT` and `CSC_TOKEN` for the target Rahti project
+and its access token.
+
+Add these additional GitHub Actions secrets to the `dev` environment:
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_HOST`, and
+`JWT_SECRET`. The `ENABLE_SWAGGER` and `TEST_DOMAIN` values are read from the
+GitHub Actions environment variables (`vars.ENABLE_SWAGGER` and
+`vars.TEST_DOMAIN`), not from secrets. During deployment, the workflow validates
+that all required values exist, then creates or updates the
+`turva-back-secrets` secret in Rahti without embedding raw YAML values. The
+backend must be able to reach the configured database. Swagger is enabled only
+when `ENABLE_SWAGGER=true`.
+
+The workflow caches npm packages, the version-pinned Rahti CLI, and Docker
+build layers between runs.
+
+### Development test database
+
+The separate **Deploy test database** workflow runs on pushes to `main` and can
+also be started manually from the Actions tab (`workflow_dispatch`). It deploys a
+PostgreSQL service named `turva-test-db` in the same Rahti project, stores
+database files on a 1 GiB persistent volume, and initializes an empty database
+with `sql/init.sql`. It uses `CSC_PROJECT`, `CSC_TOKEN`, `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, and `POSTGRES_DB` from the `dev` GitHub Actions
+environment.
+
+To connect the backend to this database, set the `POSTGRES_HOST` secret in the
+`dev` environment to `turva-test-db`, then run the regular CD workflow so the
+backend deployment receives the updated secret. The initialization script is
+run only when the database schema is absent; rerunning the workflow does not
+reset or reseed existing database data.
