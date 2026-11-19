@@ -122,6 +122,8 @@ Remove the database afterwards with `docker rm -f turva-back-testdb`.
 - `npm run start` - Build and start the application
 - `npm run start:prod` - Run the compiled application
 - `npm test` - Run Jest tests
+- `npm run test:unit` - Run isolated unit tests with coverage thresholds (90% statements, lines, and functions; 80% branches)
+- `npm run typecheck` - Run the TypeScript compiler without emitting files
 - `npm run lint` - Run ESLint
 
 The Husky pre-commit hook formats staged JavaScript, TypeScript, JSON, Markdown, and YAML files with Prettier.

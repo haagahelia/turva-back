@@ -5,6 +5,8 @@
   "main": "dist/main.js",
   "scripts": {
     "test": "dotenv -e .env.test -- jest --runInBand",
+    "test:unit": "jest --runInBand --coverage src",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "dev": "nest start --watch",
     "build": "nest build",

@@ -184,13 +184,16 @@ Controller implementations are in [src/controllers](src/controllers).
 
 **CI**
 
-- Lint-only GitHub Actions workflow in [.github/workflows/ci_pipeline.yaml](.github/workflows/ci_pipeline.yaml).
+- All pull requests, and pushes to `main`, run lint, TypeScript checks, and unit tests with coverage thresholds in [.github/workflows/ci_pipeline.yaml](.github/workflows/ci_pipeline.yaml).
+- The coverage gate requires at least 90% statements, 90% lines, 90% functions, and 80% branches.
 
 ## 9. Testing in Repo
 
 **Frameworks**
 
 - Jest and Supertest.
+- Run isolated unit tests and the coverage gate with `npm run test:unit`.
+- Run database-backed API tests with `npm test` (requires `.env.test` and PostgreSQL).
 
 **Tests present**
 
