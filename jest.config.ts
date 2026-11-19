@@ -10,7 +10,21 @@ const config: Config = {
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   clearMocks: true,
   collectCoverage: false,
+  collectCoverageFrom: [
+    "src/**/*.ts",
+    "!src/**/*.spec.ts",
+    "!src/config/cors.ts",
+    "!src/main.ts",
+  ],
   coverageDirectory: "coverage",
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 90,
+      lines: 90,
+      statements: 90,
+    },
+  },
   roots: ["<rootDir>"],
   testMatch: [
     "**/__tests__/**/*.?([mc])[jt]s?(x)",
