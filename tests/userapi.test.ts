@@ -1,6 +1,6 @@
 import { createApp } from "./create-app";
 import request from "supertest";
-import { connectDB, pool } from "../src/config/db";
+import { pool } from "../src/config/db";
 import { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { randomUUID } from "crypto";
@@ -24,7 +24,6 @@ const createUser = async (role: "admin" | "user") => {
 };
 
 beforeAll(async () => {
-  await connectDB();
   app = await createApp();
 });
 

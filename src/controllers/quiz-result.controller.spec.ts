@@ -1,4 +1,4 @@
-import { Test, TestingModule } from "@nestjs/testing";
+import { Test } from "@nestjs/testing";
 import {
   afterEach,
   beforeEach,
@@ -7,38 +7,46 @@ import {
   it,
   jest,
 } from "@jest/globals";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { QuizResultController } from "./quiz-result.controller";
-import { pool } from "../config/db";
+import {
+  BadRequestException,
+  InternalServerErrorException,
+  NotFoundException,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { QuizResultService } from "../services/quiz-result.service";
 import * as verification from "../utils/verification";
+import { QuizResultController } from "./quiz-result.controller";
 
 describe("QuizResultController", () => {
+  const quizResults = {
+    saveResult: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    getStats: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    getHistory: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
   let controller: QuizResultController;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const module = await Test.createTestingModule({
       controllers: [QuizResultController],
+      providers: [{ provide: QuizResultService, useValue: quizResults }],
     }).compile();
+
     controller = module.get(QuizResultController);
   });
+
   afterEach(() => {
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
-  it("saves a quiz result and awards a world bonus", async () => {
+  it("saves a result for the authenticated user", async () => {
     jest.spyOn(verification, "verifyToken").mockReturnValue({
       email: "learner@example.com",
     });
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValueOnce({ rows: [{ user_id: 7 }], rowCount: 1 } as never)
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as never)
-      .mockResolvedValueOnce({ rows: [{ world_id: 3 }], rowCount: 1 } as never)
-      .mockResolvedValueOnce({
-        rows: [{ total: "2", completed: "2" }],
-        rowCount: 1,
-      } as never)
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
+    quizResults.saveResult.mockResolvedValue({
+      worldCompleted: true,
+      bonusAwarded: true,
+    });
 
     await expect(
       controller.saveQuizResult(
@@ -54,24 +62,28 @@ describe("QuizResultController", () => {
       worldCompleted: true,
       bonusAwarded: true,
     });
+    expect(quizResults.saveResult).toHaveBeenCalledWith(
+      "learner@example.com",
+      5,
+      4,
+      90
+    );
   });
 
-  it("rejects missing quiz result fields", async () => {
+  it("rejects missing result fields", async () => {
     jest.spyOn(verification, "verifyToken").mockReturnValue({
       email: "learner@example.com",
     });
+
     await expect(
       controller.saveQuizResult({ quiz_id: 5 }, "Bearer token")
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(quizResults.saveResult).not.toHaveBeenCalled();
   });
 
-  it("returns not found for an unknown user", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "missing@example.com",
-    });
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
+  it("rejects tokens without an email", async () => {
+    jest.spyOn(verification, "verifyToken").mockReturnValue({});
+
     await expect(
       controller.saveQuizResult(
         {
@@ -81,47 +93,17 @@ describe("QuizResultController", () => {
         },
         "Bearer token"
       )
-    ).rejects.toBeInstanceOf(NotFoundException);
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it("returns quiz statistics", async () => {
-    jest.spyOn(pool, "query").mockResolvedValue({
-      rows: [{ points: "15", total_time_seconds: "360" }],
-      rowCount: 1,
-    } as never);
-    await expect(controller.getUserQuizStats("7")).resolves.toEqual({
-      points: 15,
-      totalTimeSeconds: 360,
-    });
-  });
-
-  it("rejects invalid quiz statistics ids", async () => {
-    await expect(controller.getUserQuizStats("")).rejects.toBeInstanceOf(
-      BadRequestException
-    );
-  });
-
-  it("returns quiz history", async () => {
-    const rows = [{ quiz_id: 5, score: 4 }];
-    jest.spyOn(pool, "query").mockResolvedValue({ rows, rowCount: 1 } as never);
-    await expect(controller.getUserQuizHistory("7")).resolves.toEqual(rows);
-  });
-
-  it("rejects invalid quiz history ids", async () => {
-    await expect(controller.getUserQuizHistory("abc")).rejects.toBeInstanceOf(
-      BadRequestException
-    );
-  });
-
-  it("returns not found when the quiz does not exist", async () => {
+  it("propagates missing-user or missing-quiz errors from the service", async () => {
     jest.spyOn(verification, "verifyToken").mockReturnValue({
       email: "learner@example.com",
     });
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValueOnce({ rows: [{ user_id: 7 }], rowCount: 1 } as never)
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as never)
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as never);
+    quizResults.saveResult.mockRejectedValue(
+      new NotFoundException({ error: "Quiz not found" })
+    );
+
     await expect(
       controller.saveQuizResult(
         {
@@ -134,17 +116,50 @@ describe("QuizResultController", () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it("maps quiz statistics database failures to internal server errors", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockRejectedValue(new Error("database down") as never);
-    await expect(controller.getUserQuizStats("7")).rejects.toThrow();
+  it("delegates statistics lookup with a numeric user id", async () => {
+    const stats = { points: 15, totalTimeSeconds: 360 };
+    quizResults.getStats.mockResolvedValue(stats);
+
+    await expect(controller.getUserQuizStats("7")).resolves.toBe(stats);
+    expect(quizResults.getStats).toHaveBeenCalledWith(7);
   });
 
-  it("maps quiz history database failures to internal server errors", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockRejectedValue(new Error("database down") as never);
-    await expect(controller.getUserQuizHistory("7")).rejects.toThrow();
+  it("rejects an invalid statistics id without calling the service", async () => {
+    await expect(controller.getUserQuizStats("")).rejects.toBeInstanceOf(
+      BadRequestException
+    );
+    expect(quizResults.getStats).not.toHaveBeenCalled();
+  });
+
+  it("maps statistics service errors to an internal server exception", async () => {
+    quizResults.getStats.mockRejectedValue(new Error("database down"));
+
+    await expect(controller.getUserQuizStats("7")).rejects.toBeInstanceOf(
+      InternalServerErrorException
+    );
+  });
+
+  it("delegates history lookup with a numeric user id", async () => {
+    const history = [{ quiz_id: 5, score: 4 }];
+    quizResults.getHistory.mockResolvedValue(history);
+
+    await expect(controller.getUserQuizHistory("7")).resolves.toBe(history);
+    expect(quizResults.getHistory).toHaveBeenCalledWith(7);
+  });
+
+  it("rejects an invalid history id without calling the service", async () => {
+    await expect(controller.getUserQuizHistory("abc")).rejects.toBeInstanceOf(
+      BadRequestException
+    );
+    expect(quizResults.getHistory).not.toHaveBeenCalled();
+  });
+
+  it("maps history service errors to an internal server exception", async () => {
+    quizResults.getHistory.mockRejectedValue(new Error("database down"));
+    jest.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(controller.getUserQuizHistory("7")).rejects.toBeInstanceOf(
+      InternalServerErrorException
+    );
   });
 });

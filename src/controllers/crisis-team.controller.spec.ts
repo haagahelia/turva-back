@@ -1,4 +1,4 @@
-import { Test, TestingModule } from "@nestjs/testing";
+import { Test } from "@nestjs/testing";
 import {
   afterEach,
   beforeEach,
@@ -8,60 +8,76 @@ import {
   jest,
 } from "@jest/globals";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { CrisisTeamService } from "../services/crisis-team.service";
+import { VerificationService } from "../services/verification.service";
 import { CrisisTeamController } from "./crisis-team.controller";
-import { pool } from "../config/db";
-import * as verification from "../utils/verification";
 
 describe("CrisisTeamController", () => {
+  const crisisTeam = {
+    findAll: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    findById: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    softDelete: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    create: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
+  const verification = {
+    verifyAdminToken: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
   let controller: CrisisTeamController;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const module = await Test.createTestingModule({
       controllers: [CrisisTeamController],
+      providers: [
+        { provide: CrisisTeamService, useValue: crisisTeam },
+        { provide: VerificationService, useValue: verification },
+      ],
     }).compile();
+
     controller = module.get(CrisisTeamController);
   });
+
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
-  it("returns all crisis team contacts", async () => {
-    const rows = [{ contact_id: 1, name_en: "Rector" }];
-    jest.spyOn(pool, "query").mockResolvedValue({ rows, rowCount: 1 } as never);
-    await expect(controller.getAllCrisisTeamContacts()).resolves.toEqual(rows);
+  it("delegates listing contacts to CrisisTeamService", async () => {
+    const contacts = [{ contact_id: 1, name_en: "Rector" }];
+    crisisTeam.findAll.mockResolvedValue(contacts);
+
+    await expect(controller.getAllCrisisTeamContacts()).resolves.toBe(contacts);
+    expect(crisisTeam.findAll).toHaveBeenCalledWith();
   });
 
-  it("returns a contact by id", async () => {
-    const row = { contact_id: 2, name_en: "Security" };
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [row], rowCount: 1 } as never);
-    await expect(controller.getCrisisTeamContactById("2")).resolves.toEqual(
-      row
-    );
-  });
-
-  it("rejects invalid contact ids", async () => {
+  it("validates a contact id before looking it up", async () => {
     await expect(
       controller.getCrisisTeamContactById("0")
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(crisisTeam.findById).not.toHaveBeenCalled();
   });
 
-  it("returns not found for a missing contact", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
+  it("returns not found when the contact does not exist", async () => {
+    crisisTeam.findById.mockResolvedValue(undefined);
+
     await expect(
       controller.getCrisisTeamContactById("99")
     ).rejects.toBeInstanceOf(NotFoundException);
+    expect(crisisTeam.findById).toHaveBeenCalledWith(99);
   });
 
-  it("creates a crisis team contact", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    const created = { contact_id: 3, name_en: "Health" };
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [created], rowCount: 1 } as never);
+  it("returns a contact found by id", async () => {
+    const contact = { contact_id: 2, name_en: "Security" };
+    crisisTeam.findById.mockResolvedValue(contact);
+
+    await expect(controller.getCrisisTeamContactById("2")).resolves.toBe(
+      contact
+    );
+  });
+
+  it("creates a contact through the service after admin verification", async () => {
+    const contact = { contact_id: 3, name_en: "Health" };
+    crisisTeam.create.mockResolvedValue(contact);
+
     await expect(
       controller.createCrisisTeamContact(
         {
@@ -74,22 +90,48 @@ describe("CrisisTeamController", () => {
         },
         "Bearer token"
       )
-    ).resolves.toEqual(created);
+    ).resolves.toBe(contact);
+
+    expect(verification.verifyAdminToken).toHaveBeenCalledWith("Bearer token");
+    expect(crisisTeam.create).toHaveBeenCalledWith(
+      1,
+      "Terveydenhuolto",
+      "Health",
+      "Hoito",
+      "Care",
+      "123"
+    );
   });
 
-  it("rejects missing create fields", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
+  it("rejects incomplete create data without calling the service", async () => {
     await expect(
       controller.createCrisisTeamContact({}, "Bearer token")
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(crisisTeam.create).not.toHaveBeenCalled();
   });
 
-  it("updates a crisis team contact", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    const updated = { contact_id: 3, name_en: "Health" };
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [updated], rowCount: 1 } as never);
+  it("maps unexpected creation errors to an internal server exception", async () => {
+    crisisTeam.create.mockRejectedValue(new Error("database down"));
+
+    await expect(
+      controller.createCrisisTeamContact(
+        {
+          organization_id: 1,
+          name_fi: "Nimi",
+          name_en: "Name",
+          role_fi: "Rooli",
+          role_en: "Role",
+          phone: "123",
+        },
+        "Bearer token"
+      )
+    ).rejects.toThrow();
+  });
+
+  it("updates a contact and returns the service result", async () => {
+    const contact = { contact_id: 3, name_en: "Health" };
+    crisisTeam.update.mockResolvedValue(contact);
+
     await expect(
       controller.updateCrisisTeamContact(
         "3",
@@ -102,75 +144,44 @@ describe("CrisisTeamController", () => {
         },
         "Bearer token"
       )
-    ).resolves.toEqual({
-      message: "Updated successfully",
-      updated,
-    });
+    ).resolves.toEqual({ message: "Updated successfully", updated: contact });
+    expect(crisisTeam.update).toHaveBeenCalledWith(
+      3,
+      "Terveydenhuolto",
+      "Health",
+      "Hoito",
+      "Care",
+      "123"
+    );
   });
 
-  it("deletes a crisis team contact", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    const deleted = { contact_id: 3, name_en: "Health" };
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [deleted], rowCount: 1 } as never);
-    await expect(
-      controller.deleteCrisisTeamContact("3", "Bearer token")
-    ).resolves.toEqual({
-      message: "Deleted successfully",
-      deleted,
-    });
-  });
+  it("returns not found when a contact cannot be deleted", async () => {
+    crisisTeam.softDelete.mockResolvedValue(undefined);
 
-  it("rejects invalid update ids", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    await expect(
-      controller.updateCrisisTeamContact("0", {}, "Bearer token")
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it("returns not found when updating a missing contact", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
-    await expect(
-      controller.updateCrisisTeamContact(
-        "99",
-        {
-          name_fi: "Nimi",
-          name_en: "Name",
-          role_fi: "Rooli",
-          role_en: "Role",
-          phone: "123",
-        },
-        "Bearer token"
-      )
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it("returns not found when deleting a missing contact", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
     await expect(
       controller.deleteCrisisTeamContact("99", "Bearer token")
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it("maps list query failures to internal server errors", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockRejectedValue(new Error("database down") as never);
-    await expect(controller.getAllCrisisTeamContacts()).rejects.toThrow();
+  it("deletes an existing contact", async () => {
+    const contact = { contact_id: 3 };
+    crisisTeam.softDelete.mockResolvedValue(contact);
+
+    await expect(
+      controller.deleteCrisisTeamContact("3", "Bearer token")
+    ).resolves.toEqual({ message: "Deleted successfully", deleted: contact });
   });
 
-  it("maps contact update database failures to internal server errors", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    jest
-      .spyOn(pool, "query")
-      .mockRejectedValue(new Error("database down") as never);
+  it("rejects invalid update ids before calling the service", async () => {
+    await expect(
+      controller.updateCrisisTeamContact("0", {}, "Bearer token")
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(crisisTeam.update).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when an update matches no contact", async () => {
+    crisisTeam.update.mockResolvedValue(undefined);
+
     await expect(
       controller.updateCrisisTeamContact(
         "3",
@@ -183,6 +194,13 @@ describe("CrisisTeamController", () => {
         },
         "Bearer token"
       )
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("rejects missing fields when updating a contact", async () => {
+    await expect(
+      controller.updateCrisisTeamContact("3", {}, "Bearer token")
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(crisisTeam.update).not.toHaveBeenCalled();
   });
 });

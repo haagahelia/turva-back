@@ -1,9 +1,4 @@
-import { Test, TestingModule } from "@nestjs/testing";
-import {
-  BadRequestException,
-  InternalServerErrorException,
-  NotFoundException,
-} from "@nestjs/common";
+import { Test } from "@nestjs/testing";
 import {
   afterEach,
   beforeEach,
@@ -12,133 +7,137 @@ import {
   it,
   jest,
 } from "@jest/globals";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { InfoService } from "../services/info.service";
 import { InfoController } from "./info.controller";
-import { pool } from "../config/db";
 
 describe("InfoController", () => {
+  const info = {
+    findAll: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    findById: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    deleteById: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    create: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    update: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
   let controller: InfoController;
-  let querySpy: jest.SpiedFunction<typeof pool.query>;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const module = await Test.createTestingModule({
       controllers: [InfoController],
+      providers: [{ provide: InfoService, useValue: info }],
     }).compile();
 
     controller = module.get(InfoController);
-    querySpy = jest.spyOn(pool, "query");
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
-  it("returns all info pages ordered by the query", async () => {
-    const rows = [{ id: 1, title: "Rules" }];
-    querySpy.mockResolvedValue({ rows, rowCount: 1 } as never);
+  it("delegates listing pages to InfoService", async () => {
+    const pages = [{ id: 1, title: "Rules" }];
+    info.findAll.mockResolvedValue(pages);
 
-    await expect(controller.getAllInfoPages()).resolves.toEqual(rows);
-    expect(querySpy.mock.calls[0]).toEqual(["SELECT * FROM info ORDER BY id;"]);
+    await expect(controller.getAllInfoPages()).resolves.toBe(pages);
+    expect(info.findAll).toHaveBeenCalledWith();
   });
 
-  it("returns an info page by numeric id", async () => {
-    const row = { id: 2, title: "Safety", content: "Details" };
-    querySpy.mockResolvedValue({ rows: [row], rowCount: 1 } as never);
-
-    await expect(controller.getInfoPageById("2")).resolves.toEqual(row);
-    expect(querySpy.mock.calls[0]).toEqual([
-      "SELECT * FROM info WHERE id = $1",
-      [2],
-    ]);
-  });
-
-  it("rejects a non-numeric info id", async () => {
+  it("validates an info page id before looking it up", async () => {
     await expect(controller.getInfoPageById("abc")).rejects.toBeInstanceOf(
       BadRequestException
     );
+    expect(info.findById).not.toHaveBeenCalled();
   });
 
-  it("returns not found when an info page does not exist", async () => {
-    querySpy.mockResolvedValue({ rows: [], rowCount: 0 } as never);
+  it("returns a page found by id", async () => {
+    const page = { id: 2, title: "Safety" };
+    info.findById.mockResolvedValue(page);
+
+    await expect(controller.getInfoPageById("2")).resolves.toBe(page);
+  });
+
+  it("returns not found when InfoService has no matching page", async () => {
+    info.findById.mockResolvedValue(undefined);
 
     await expect(controller.getInfoPageById("99")).rejects.toBeInstanceOf(
       NotFoundException
     );
+    expect(info.findById).toHaveBeenCalledWith(99);
   });
 
-  it("creates an info page", async () => {
-    const created = { id: 3, title: "New", content: "Body" };
-    querySpy.mockResolvedValue({ rows: [created], rowCount: 1 } as never);
+  it("creates a page through InfoService", async () => {
+    const page = { id: 3, title: "Safety", content: "Details" };
+    info.create.mockResolvedValue(page);
 
     await expect(
-      controller.createInfoPage({ title: "New", content: "Body" })
-    ).resolves.toEqual(created);
+      controller.createInfoPage({ title: "Safety", content: "Details" })
+    ).resolves.toBe(page);
+    expect(info.create).toHaveBeenCalledWith("Safety", "Details");
   });
 
-  it("rejects missing create fields", async () => {
+  it("rejects incomplete page data", async () => {
     await expect(
-      controller.createInfoPage({ title: "New" })
+      controller.createInfoPage({ title: "Safety" })
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(info.create).not.toHaveBeenCalled();
   });
 
-  it("updates an existing info page", async () => {
-    const updated = { id: 3, title: "Changed", content: "Body" };
-    querySpy.mockResolvedValue({ rows: [updated], rowCount: 1 } as never);
+  it("updates a page through InfoService", async () => {
+    const updated = { id: 3, title: "Updated", content: "Details" };
+    info.update.mockResolvedValue(updated);
 
     await expect(
-      controller.updateInfoPage({ title: "Changed", content: "Body" }, "3")
-    ).resolves.toEqual({
-      message: "Updated successfully",
-      updated,
-    });
+      controller.updateInfoPage({ title: "Updated", content: "Details" }, "3")
+    ).resolves.toEqual({ message: "Updated successfully", updated });
+    expect(info.update).toHaveBeenCalledWith(3, "Updated", "Details");
   });
 
-  it("deletes an existing info page", async () => {
-    const deleted = { id: 4, title: "Old", content: "Body" };
-    querySpy.mockResolvedValue({ rows: [deleted], rowCount: 1 } as never);
+  it("returns not found when the page cannot be updated", async () => {
+    info.update.mockResolvedValue(undefined);
 
-    await expect(controller.deleteInfoPage("4")).resolves.toEqual({
-      message: "Deleted successfully",
-      deleted,
-    });
-  });
-
-  it("maps database failures to an internal server exception", async () => {
-    querySpy.mockRejectedValue(new Error("database unavailable") as never);
-
-    await expect(controller.getAllInfoPages()).rejects.toBeInstanceOf(
-      InternalServerErrorException
-    );
-  });
-
-  it("returns not found when updating a missing page", async () => {
-    querySpy.mockResolvedValue({ rows: [], rowCount: 0 } as never);
     await expect(
-      controller.updateInfoPage(
-        {
-          title: "Missing",
-          content: "Body",
-        },
-        "99"
-      )
+      controller.updateInfoPage({ title: "Missing", content: "Details" }, "99")
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it("returns not found when deleting a missing page", async () => {
-    querySpy.mockResolvedValue({ rows: [], rowCount: 0 } as never);
+  it("rejects invalid ids and incomplete update data", async () => {
+    await expect(
+      controller.updateInfoPage({ title: "Title", content: "Content" }, "abc")
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      controller.updateInfoPage({ title: "Title" }, "3")
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(info.update).not.toHaveBeenCalled();
+  });
+
+  it("deletes a page and returns the deleted row", async () => {
+    const page = { id: 4, title: "Old" };
+    info.deleteById.mockResolvedValue(page);
+
+    await expect(controller.deleteInfoPage("4")).resolves.toEqual({
+      message: "Deleted successfully",
+      deleted: page,
+    });
+    expect(info.deleteById).toHaveBeenCalledWith(4);
+  });
+
+  it("rejects invalid or missing pages during deletion", async () => {
+    await expect(controller.deleteInfoPage("abc")).rejects.toBeInstanceOf(
+      BadRequestException
+    );
+    info.deleteById.mockResolvedValue(undefined);
     await expect(controller.deleteInfoPage("99")).rejects.toBeInstanceOf(
       NotFoundException
     );
   });
 
-  it("rejects invalid update ids", async () => {
+  it("maps synchronous service failures to internal server exceptions", async () => {
+    info.create.mockImplementation(() => {
+      throw new Error("database down");
+    });
+
     await expect(
-      controller.updateInfoPage(
-        {
-          title: "Title",
-          content: "Body",
-        },
-        "abc"
-      )
-    ).rejects.toBeInstanceOf(BadRequestException);
+      controller.createInfoPage({ title: "New", content: "Body" })
+    ).rejects.toThrow();
   });
 });

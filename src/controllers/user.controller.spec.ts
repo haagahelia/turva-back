@@ -1,4 +1,4 @@
-import { Test, TestingModule } from "@nestjs/testing";
+import { Test } from "@nestjs/testing";
 import {
   afterEach,
   beforeEach,
@@ -7,26 +7,28 @@ import {
   it,
   jest,
 } from "@jest/globals";
-import {
-  HttpException,
-  InternalServerErrorException,
-  NotFoundException,
-} from "@nestjs/common";
-import { UserController } from "./user.controller";
-import { pool } from "../config/db";
+import { HttpException, NotFoundException } from "@nestjs/common";
+import { UserService } from "../services/user.service";
 import * as verification from "../utils/verification";
+import { UserController } from "./user.controller";
 
 describe("UserController", () => {
+  const users = {
+    findProfile: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
   let controller: UserController;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const module = await Test.createTestingModule({
       controllers: [UserController],
+      providers: [{ provide: UserService, useValue: users }],
     }).compile();
+
     controller = module.get(UserController);
   });
 
   afterEach(() => {
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
@@ -35,18 +37,13 @@ describe("UserController", () => {
       email: "learner@example.com",
       username: "learner",
     });
-    jest.spyOn(pool, "query").mockResolvedValue({
-      rows: [
-        {
-          user_id: 7,
-          profile_name: "learner",
-          profile_picture_url: "/learner.png",
-          email_address: "learner@example.com",
-          role: "admin",
-        },
-      ],
-      rowCount: 1,
-    } as never);
+    users.findProfile.mockResolvedValue({
+      user_id: 7,
+      profile_name: "learner",
+      profile_picture_url: "/learner.png",
+      email_address: "learner@example.com",
+      role: "admin",
+    });
 
     await expect(controller.getProfile("Bearer token")).resolves.toEqual({
       userId: 7,
@@ -55,23 +52,13 @@ describe("UserController", () => {
       email: "learner@example.com",
       role: "admin",
     });
-  });
-
-  it("throws not found for an unknown user", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "missing@example.com",
-      username: "missing",
-    });
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
-
-    await expect(controller.getProfile("Bearer token")).rejects.toBeInstanceOf(
-      NotFoundException
+    expect(users.findProfile).toHaveBeenCalledWith(
+      "learner@example.com",
+      "learner"
     );
   });
 
-  it("rejects a token payload without an email", async () => {
+  it("rejects token payloads without an email", async () => {
     jest
       .spyOn(verification, "verifyToken")
       .mockReturnValue({ username: "learner" });
@@ -79,18 +66,17 @@ describe("UserController", () => {
     await expect(controller.getProfile("Bearer token")).rejects.toBeInstanceOf(
       HttpException
     );
+    expect(users.findProfile).not.toHaveBeenCalled();
   });
 
-  it("maps database failures to internal server errors", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
-    });
+  it("returns not found when the profile does not exist", async () => {
     jest
-      .spyOn(pool, "query")
-      .mockRejectedValue(new Error("database down") as never);
+      .spyOn(verification, "verifyToken")
+      .mockReturnValue({ email: "missing@example.com" });
+    users.findProfile.mockResolvedValue(undefined);
 
     await expect(controller.getProfile("Bearer token")).rejects.toBeInstanceOf(
-      InternalServerErrorException
+      NotFoundException
     );
   });
 });

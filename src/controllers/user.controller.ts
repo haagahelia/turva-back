@@ -13,12 +13,14 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { pool } from "../config/db";
 import { verifyToken } from "../utils/verification";
+import { UserService } from "../services/user.service";
 
 @Controller("user")
 @ApiTags("User")
 export class UserController {
+  constructor(private readonly users: UserService) {}
+
   @Get("/profile")
   @ApiBearerAuth("bearerAuth")
   @ApiOperation({
@@ -45,23 +47,11 @@ export class UserController {
         email: string;
         username?: string;
       };
-      // Match on email and profile name, like verifyAdminToken, so the role
-      // returned here is the one the write routes will check.
-      const query = `
-      SELECT user_id, profile_name, profile_picture_url, email_address, role
-      FROM TurvaUser
-      WHERE email_address = $1
-        AND ($2::text IS NULL OR profile_name = $2)
-        AND deleted_at IS NULL
-    `;
+      const user = await this.users.findProfile(email, username);
 
-      const result = await pool.query(query, [email, username ?? null]);
-
-      if (result.rowCount === 0) {
+      if (!user) {
         throw new NotFoundException({ error: "User not found" });
       }
-
-      const user = result.rows[0];
 
       return {
         userId: user.user_id,
