@@ -1,4 +1,4 @@
-import { Test, TestingModule } from "@nestjs/testing";
+import { Test } from "@nestjs/testing";
 import {
   afterEach,
   beforeEach,
@@ -7,162 +7,130 @@ import {
   it,
   jest,
 } from "@jest/globals";
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { ForbiddenException } from "@nestjs/common";
 import type { Response } from "express";
-import { PhysicalRewardController } from "./physical-reward.controller";
-import { pool } from "../config/db";
+import { PhysicalRewardService } from "../services/physical-reward.service";
 import * as verification from "../utils/verification";
-
-type MockResponse = Response & {
-  status: jest.Mock;
-  setHeader: jest.Mock;
-};
-
-const responseMock = (): MockResponse =>
-  ({
-    status: jest.fn(),
-    setHeader: jest.fn(),
-  }) as unknown as MockResponse;
+import { PhysicalRewardController } from "./physical-reward.controller";
 
 describe("PhysicalRewardController", () => {
+  const physicalRewards = {
+    claim: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    verify: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
   let controller: PhysicalRewardController;
 
+  const response = () => {
+    const status = jest.fn();
+    const setHeader = jest.fn();
+    return {
+      response: { status, setHeader } as unknown as Response,
+      status,
+      setHeader,
+    };
+  };
+
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const module = await Test.createTestingModule({
       controllers: [PhysicalRewardController],
+      providers: [
+        { provide: PhysicalRewardService, useValue: physicalRewards },
+      ],
     }).compile();
+
     controller = module.get(PhysicalRewardController);
   });
+
   afterEach(() => {
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
-  it("rejects reward claims before all worlds are completed", async () => {
+  it("passes the verified email to the reward service", async () => {
     jest.spyOn(verification, "verifyToken").mockReturnValue({
       email: "learner@example.com",
     });
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValueOnce({ rows: [{ user_id: 7 }], rowCount: 1 } as never)
-      .mockResolvedValueOnce({ rows: [{ total: "3" }], rowCount: 1 } as never)
-      .mockResolvedValueOnce({
-        rows: [{ completed: "1" }],
-        rowCount: 1,
-      } as never);
+    physicalRewards.claim.mockResolvedValue({
+      created: true,
+      alreadyClaimed: false,
+      reward_code: "abc",
+    });
 
     await expect(
-      controller.claimPhysicalReward("Bearer token", responseMock())
+      controller.claimPhysicalReward("Bearer token", response().response)
+    ).resolves.toEqual({ alreadyClaimed: false, reward_code: "abc" });
+    expect(physicalRewards.claim).toHaveBeenCalledWith("learner@example.com");
+  });
+
+  it("rejects a claim when the token has no email", async () => {
+    jest.spyOn(verification, "verifyToken").mockReturnValue({});
+
+    await expect(
+      controller.claimPhysicalReward("Bearer token", response().response)
+    ).rejects.toThrow();
+    expect(physicalRewards.claim).not.toHaveBeenCalled();
+  });
+
+  it("propagates reward eligibility errors", async () => {
+    jest.spyOn(verification, "verifyToken").mockReturnValue({
+      email: "learner@example.com",
+    });
+    physicalRewards.claim.mockRejectedValue(
+      new ForbiddenException({ error: "Not all worlds completed" })
+    );
+
+    await expect(
+      controller.claimPhysicalReward("Bearer token", response().response)
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("returns an existing unclaimed reward", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
+  it("returns not-found HTML for an unknown reward code", async () => {
+    const { response: res, status, setHeader } = response();
+    physicalRewards.verify.mockResolvedValue({ kind: "not-found" });
+
+    const html = await controller.verifyPhysicalReward("missing", res);
+
+    expect(html).toContain("Koodia ei löydy");
+    expect(status).toHaveBeenCalledWith(404);
+    expect(setHeader).toHaveBeenCalledWith("Content-Type", "text/html");
+  });
+
+  it("returns claimed HTML after verifying a reward code", async () => {
+    const { response: res, status } = response();
+    physicalRewards.verify.mockResolvedValue({
+      kind: "claimed",
+      profileName: "learner",
     });
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValueOnce({ rows: [{ user_id: 7 }], rowCount: 1 } as never)
-      .mockResolvedValueOnce({ rows: [{ total: "1" }], rowCount: 1 } as never)
-      .mockResolvedValueOnce({
-        rows: [{ completed: "1" }],
-        rowCount: 1,
-      } as never)
-      .mockResolvedValueOnce({
-        rows: [{ reward_code: "abc", claimed_at: null }],
-        rowCount: 1,
-      } as never);
 
-    await expect(
-      controller.claimPhysicalReward("Bearer token", responseMock())
-    ).resolves.toEqual({ alreadyClaimed: false, reward_code: "abc" });
+    const html = await controller.verifyPhysicalReward("abc", res);
+
+    expect(html).toContain("learner");
+    expect(status).not.toHaveBeenCalled();
+    expect(physicalRewards.verify).toHaveBeenCalledWith("abc");
   });
 
-  it("creates a reward for an eligible user", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
+  it("returns the already-claimed HTML state", async () => {
+    const { response: res } = response();
+    physicalRewards.verify.mockResolvedValue({
+      kind: "already-claimed",
+      profileName: "learner",
+      claimedAt: new Date("2025-01-01"),
     });
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValueOnce({ rows: [{ user_id: 7 }], rowCount: 1 } as never)
-      .mockResolvedValueOnce({ rows: [{ total: "1" }], rowCount: 1 } as never)
-      .mockResolvedValueOnce({
-        rows: [{ completed: "1" }],
-        rowCount: 1,
-      } as never)
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as never)
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
 
-    const result = await controller.claimPhysicalReward(
-      "Bearer token",
-      responseMock()
-    );
-    expect(result.alreadyClaimed).toBe(false);
-    expect(result.reward_code).toEqual(expect.any(String));
+    const html = await controller.verifyPhysicalReward("used", res);
+
+    expect(html).toContain("Koodi on jo käytetty");
+    expect(html).toContain("learner");
   });
 
-  it("returns a 404 HTML response for an unknown verification code", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
-    const response = responseMock();
-    const result = await controller.verifyPhysicalReward("missing", response);
-    expect(typeof result).toBe("string");
-    expect(response.status.mock.calls).toContainEqual([404]);
-  });
+  it("returns an error page if reward verification fails", async () => {
+    const { response: res, status } = response();
+    physicalRewards.verify.mockRejectedValue(new Error("database down"));
+    jest.spyOn(console, "error").mockImplementation(() => {});
 
-  it("marks a reward code as claimed", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValueOnce({
-        rows: [{ reward_id: 4, claimed_at: null, profile_name: "learner" }],
-        rowCount: 1,
-      } as never)
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
-    const response = responseMock();
-    const result = await controller.verifyPhysicalReward("abc", response);
-    expect(typeof result).toBe("string");
-  });
+    const html = await controller.verifyPhysicalReward("abc", res);
 
-  it("returns the already claimed HTML state", async () => {
-    jest.spyOn(pool, "query").mockResolvedValue({
-      rows: [{ reward_id: 4, claimed_at: new Date(), profile_name: "learner" }],
-      rowCount: 1,
-    } as never);
-    const result = await controller.verifyPhysicalReward("abc", responseMock());
-    expect(typeof result).toBe("string");
-  });
-
-  it("returns not found for an unknown reward user", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "missing@example.com",
-    });
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
-    await expect(
-      controller.claimPhysicalReward("Bearer token", responseMock())
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it("maps reward claim database failures to internal server errors", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
-    });
-    jest
-      .spyOn(pool, "query")
-      .mockRejectedValue(new Error("database down") as never);
-    await expect(
-      controller.claimPhysicalReward("Bearer token", responseMock())
-    ).rejects.toThrow();
-  });
-
-  it("returns an HTML 500 response when verification throws", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockRejectedValue(new Error("database down") as never);
-    const response = responseMock();
-    await expect(
-      controller.verifyPhysicalReward("abc", response)
-    ).resolves.toEqual(expect.any(String));
+    expect(html).toContain("Koodia ei löydy");
+    expect(status).toHaveBeenCalledWith(500);
   });
 });

@@ -1,4 +1,4 @@
-import { Test, TestingModule } from "@nestjs/testing";
+import { Test } from "@nestjs/testing";
 import {
   afterEach,
   beforeEach,
@@ -13,24 +13,39 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import bcrypt from "bcryptjs";
-import { AuthController } from "./auth.controller";
-import { pool } from "../config/db";
-import * as verification from "../utils/verification";
+import { AuthService } from "../services/auth.service";
+import { VerificationService } from "../services/verification.service";
+import * as emailer from "../utils/emailer";
 import * as pinGenerator from "../utils/pinGenerator";
 import * as tokenGenerator from "../utils/tokenGenerator";
-import * as emailer from "../utils/emailer";
+import * as verification from "../utils/verification";
+import { AuthController } from "./auth.controller";
 
 describe("AuthController", () => {
+  const auth = {
+    registerUser: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    saveLoginCode: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
+  const verificationService = {
+    verifyUser: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    verifyPin: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
   let controller: AuthController;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const module = await Test.createTestingModule({
       controllers: [AuthController],
+      providers: [
+        { provide: AuthService, useValue: auth },
+        { provide: VerificationService, useValue: verificationService },
+      ],
     }).compile();
+
     controller = module.get(AuthController);
   });
 
   afterEach(() => {
+    jest.clearAllMocks();
     jest.restoreAllMocks();
   });
 
@@ -38,10 +53,12 @@ describe("AuthController", () => {
     await expect(controller.registerUser({})).rejects.toBeInstanceOf(
       BadRequestException
     );
+    expect(auth.registerUser).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid registration email", async () => {
     jest.spyOn(verification, "validateEmail").mockReturnValue(false);
+
     await expect(
       controller.registerUser({
         username: "learner",
@@ -51,29 +68,27 @@ describe("AuthController", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it("registers a new user", async () => {
+  it("registers through AuthService", async () => {
     jest.spyOn(verification, "validateEmail").mockReturnValue(true);
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 } as never)
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 } as never);
 
-    await expect(
-      controller.registerUser({
-        username: "learner",
-        email: "learner@example.com",
-        organizationId: 1,
-      })
-    ).resolves.toEqual({ message: "Account created!" });
+    await controller.registerUser({
+      username: "learner",
+      email: "learner@example.com",
+      organizationId: 1,
+    });
+
+    expect(auth.registerUser).toHaveBeenCalledWith(
+      1,
+      "learner",
+      "learner@example.com"
+    );
   });
 
-  it("rejects a duplicate registration", async () => {
+  it("propagates duplicate registration from AuthService", async () => {
     jest.spyOn(verification, "validateEmail").mockReturnValue(true);
-    jest.spyOn(verification, "verifyUser").mockResolvedValue(true);
-    jest.spyOn(pool, "query").mockResolvedValue({
-      rows: [{ existing_profile_name: "learner" }],
-      rowCount: 1,
-    } as never);
+    auth.registerUser.mockRejectedValue(
+      new ConflictException("Email or username already in use")
+    );
 
     await expect(
       controller.registerUser({
@@ -84,41 +99,33 @@ describe("AuthController", () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it("rejects login requests without a username", async () => {
+  it("rejects a login request without a username", async () => {
     await expect(
       controller.requestLoginCode({ email: "learner@example.com" })
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it("rejects login requests without an email", async () => {
+  it("rejects a login request without an email", async () => {
     await expect(
       controller.requestLoginCode({ username: "learner" })
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it("sends a login pin for valid credentials", async () => {
-    jest.spyOn(verification, "validateEmail").mockReturnValue(true);
-    jest.spyOn(verification, "verifyUser").mockResolvedValue(true);
-    jest.spyOn(pinGenerator, "generatePin").mockReturnValue("123456");
-    jest.spyOn(bcrypt, "hash").mockResolvedValue("hashed-pin" as never);
-    jest.spyOn(emailer, "sendEmail").mockResolvedValue();
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 1 } as never);
+  it("rejects an invalid login email", async () => {
+    jest.spyOn(verification, "validateEmail").mockReturnValue(false);
 
     await expect(
       controller.requestLoginCode({
         username: "learner",
-        email: "learner@example.com",
+        email: "bad",
       })
-    ).resolves.toEqual({
-      message: "Login email sent to learner@example.com",
-    });
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(verificationService.verifyUser).not.toHaveBeenCalled();
   });
 
   it("rejects login for unknown credentials", async () => {
     jest.spyOn(verification, "validateEmail").mockReturnValue(true);
-    jest.spyOn(verification, "verifyUser").mockResolvedValue(false);
+    verificationService.verifyUser.mockResolvedValue(false);
 
     await expect(
       controller.requestLoginCode({
@@ -128,14 +135,42 @@ describe("AuthController", () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
+  it("saves and emails a login code for valid credentials", async () => {
+    jest.spyOn(verification, "validateEmail").mockReturnValue(true);
+    verificationService.verifyUser.mockResolvedValue(true);
+    jest.spyOn(pinGenerator, "generatePin").mockReturnValue("123456");
+    jest.spyOn(bcrypt, "hash").mockResolvedValue("hashed-pin" as never);
+    jest.spyOn(emailer, "sendEmail").mockResolvedValue();
+
+    await expect(
+      controller.requestLoginCode({
+        username: "learner",
+        email: "learner@example.com",
+      })
+    ).resolves.toEqual({
+      message: "Login email sent to learner@example.com",
+    });
+
+    expect(auth.saveLoginCode).toHaveBeenCalledWith(
+      "learner@example.com",
+      "hashed-pin",
+      expect.any(Date),
+      expect.any(Date)
+    );
+    expect(emailer.sendEmail).toHaveBeenCalledWith(
+      "learner@example.com",
+      "123456"
+    );
+  });
+
   it("rejects verification without a code", async () => {
     await expect(controller.verifyLoginCode({})).rejects.toBeInstanceOf(
       BadRequestException
     );
   });
 
-  it("returns a token for a valid login code", async () => {
-    jest.spyOn(verification, "verifyPin").mockResolvedValue(true);
+  it("returns a token for a verified login code", async () => {
+    verificationService.verifyPin.mockResolvedValue(true);
     jest.spyOn(tokenGenerator, "generateToken").mockReturnValue("test-token");
 
     await expect(
@@ -151,7 +186,7 @@ describe("AuthController", () => {
   });
 
   it("rejects an invalid login code", async () => {
-    jest.spyOn(verification, "verifyPin").mockResolvedValue(false);
+    verificationService.verifyPin.mockResolvedValue(false);
 
     await expect(
       controller.verifyLoginCode({

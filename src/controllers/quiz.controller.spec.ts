@@ -1,4 +1,4 @@
-import { Test, TestingModule } from "@nestjs/testing";
+import { Test } from "@nestjs/testing";
 import {
   afterEach,
   beforeEach,
@@ -8,62 +8,95 @@ import {
   jest,
 } from "@jest/globals";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { QuizService } from "../services/quiz.service";
+import { VerificationService } from "../services/verification.service";
 import { QuizController } from "./quiz.controller";
-import { pool } from "../config/db";
-import * as verification from "../utils/verification";
 
 describe("QuizController", () => {
+  const quizzes = {
+    findAll: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    findById: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    findByWorldId: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    create: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    updateContent: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+    softDelete: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
+  const verification = {
+    verifyAdminToken: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
+  };
   let controller: QuizController;
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const module = await Test.createTestingModule({
       controllers: [QuizController],
+      providers: [
+        { provide: QuizService, useValue: quizzes },
+        { provide: VerificationService, useValue: verification },
+      ],
     }).compile();
+
     controller = module.get(QuizController);
   });
+
   afterEach(() => {
-    jest.restoreAllMocks();
+    jest.clearAllMocks();
   });
 
-  it("returns all quizzes", async () => {
-    const rows = [{ quiz_id: 1 }];
-    jest.spyOn(pool, "query").mockResolvedValue({ rows, rowCount: 1 } as never);
-    await expect(controller.getAllQuizzes()).resolves.toEqual(rows);
+  it("delegates quiz listing to QuizService", async () => {
+    const items = [{ quiz_id: 1 }];
+    quizzes.findAll.mockResolvedValue(items);
+
+    await expect(controller.getAllQuizzes()).resolves.toBe(items);
+    expect(quizzes.findAll).toHaveBeenCalledWith();
   });
 
-  it("returns a quiz by id", async () => {
-    const rows = [{ quiz_id: 2 }];
-    jest.spyOn(pool, "query").mockResolvedValue({ rows, rowCount: 1 } as never);
-    await expect(controller.getQuizById("2")).resolves.toEqual(rows);
-  });
-
-  it("rejects an invalid quiz id", async () => {
+  it("validates quiz ids before querying", async () => {
     await expect(controller.getQuizById("abc")).rejects.toBeInstanceOf(
       BadRequestException
     );
+    expect(quizzes.findById).not.toHaveBeenCalled();
   });
 
-  it("returns not found for a missing quiz", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
+  it("returns not found when no quiz matches an id", async () => {
+    quizzes.findById.mockResolvedValue([]);
+
     await expect(controller.getQuizById("99")).rejects.toBeInstanceOf(
+      NotFoundException
+    );
+    expect(quizzes.findById).toHaveBeenCalledWith(99);
+  });
+
+  it("returns a quiz found by id", async () => {
+    const quizzesForId = [{ quiz_id: 1 }];
+    quizzes.findById.mockResolvedValue(quizzesForId);
+
+    await expect(controller.getQuizById("1")).resolves.toBe(quizzesForId);
+  });
+
+  it("lists quizzes for a world and handles an empty result", async () => {
+    const quizzesForWorld = [{ quiz_id: 1, world_id: 3 }];
+    quizzes.findByWorldId.mockResolvedValue(quizzesForWorld);
+    await expect(controller.getQuizzesByWorldId("3")).resolves.toBe(
+      quizzesForWorld
+    );
+
+    quizzes.findByWorldId.mockResolvedValue([]);
+    await expect(controller.getQuizzesByWorldId("99")).rejects.toBeInstanceOf(
       NotFoundException
     );
   });
 
-  it("returns quizzes by world id", async () => {
-    const rows = [{ quiz_id: 1, world_id: 3 }];
-    jest.spyOn(pool, "query").mockResolvedValue({ rows, rowCount: 1 } as never);
-    await expect(controller.getQuizzesByWorldId("3")).resolves.toEqual(rows);
+  it("rejects an invalid world id", async () => {
+    await expect(controller.getQuizzesByWorldId("")).rejects.toBeInstanceOf(
+      BadRequestException
+    );
+    expect(quizzes.findByWorldId).not.toHaveBeenCalled();
   });
 
-  it("creates a valid quiz", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    const created = { quiz_id: 1 };
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [created], rowCount: 1 } as never);
+  it("creates a quiz through QuizService after admin verification", async () => {
+    const quiz = { quiz_id: 1 };
+    quizzes.create.mockResolvedValue(quiz);
+
     await expect(
       controller.createQuiz(
         {
@@ -75,78 +108,19 @@ describe("QuizController", () => {
         },
         "Bearer token"
       )
-    ).resolves.toEqual(created);
-  });
+    ).resolves.toBe(quiz);
 
-  it("rejects missing quiz fields", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    await expect(
-      controller.createQuiz({}, "Bearer token")
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it("updates quiz content", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    const updated = { quiz_id: 1 };
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [updated], rowCount: 1 } as never);
-    await expect(
-      controller.updateQuiz(
-        "1",
-        { fi: { questions: [] } },
-        "Bearer token",
-        "application/json"
-      )
-    ).resolves.toEqual({ message: "Updated successfully", updated });
-  });
-
-  it("rejects invalid quiz update content", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    await expect(
-      controller.updateQuiz("1", null as never, "Bearer token", "text/plain")
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it("deletes a quiz", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    const deleted = { quiz_id: 1 };
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [deleted], rowCount: 1 } as never);
-    await expect(controller.deleteQuiz("1", "Bearer token")).resolves.toEqual({
-      message: "Deleted successfully",
-      deleted,
-    });
-  });
-
-  it("returns not found when deleting a missing quiz", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
-    await expect(
-      controller.deleteQuiz("99", "Bearer token")
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it("rejects invalid world ids when listing quizzes", async () => {
-    await expect(controller.getQuizzesByWorldId("")).rejects.toBeInstanceOf(
-      BadRequestException
+    expect(verification.verifyAdminToken).toHaveBeenCalledWith("Bearer token");
+    expect(quizzes.create).toHaveBeenCalledWith(
+      1,
+      "Tietovisa",
+      "Quiz",
+      { fi: {} },
+      1
     );
   });
 
-  it("returns not found for a world with no quizzes", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
-    await expect(controller.getQuizzesByWorldId("99")).rejects.toBeInstanceOf(
-      NotFoundException
-    );
-  });
-
-  it("rejects invalid numeric values while creating a quiz", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
+  it("rejects invalid quiz data without creating it", async () => {
     await expect(
       controller.createQuiz(
         {
@@ -158,41 +132,84 @@ describe("QuizController", () => {
         "Bearer token"
       )
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(quizzes.create).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid ids while updating quiz content", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
+  it("rejects invalid quiz ids before updating or deleting", async () => {
     await expect(
-      controller.updateQuiz("0", { fi: {} }, "Bearer token", "application/json")
+      controller.updateQuiz("0", {}, "Bearer token", "application/json")
     ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it("returns not found while updating a missing quiz", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
-    jest
-      .spyOn(pool, "query")
-      .mockResolvedValue({ rows: [], rowCount: 0 } as never);
-    await expect(
-      controller.updateQuiz(
-        "99",
-        { fi: {} },
-        "Bearer token",
-        "application/json"
-      )
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it("rejects invalid ids while deleting quizzes", async () => {
-    jest.spyOn(verification, "verifyAdminToken").mockResolvedValue({});
     await expect(
       controller.deleteQuiz("0", "Bearer token")
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(quizzes.updateContent).not.toHaveBeenCalled();
+    expect(quizzes.softDelete).not.toHaveBeenCalled();
   });
 
-  it("maps database failures to internal server errors", async () => {
-    jest
-      .spyOn(pool, "query")
-      .mockRejectedValue(new Error("database down") as never);
-    await expect(controller.getAllQuizzes()).rejects.toThrow();
+  it("returns not found when an update has no matching quiz", async () => {
+    quizzes.updateContent.mockResolvedValue(undefined);
+
+    await expect(
+      controller.updateQuiz("1", { fi: {} }, "Bearer token", "application/json")
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("updates quiz content through QuizService", async () => {
+    const updated = { quiz_id: 1 };
+    quizzes.updateContent.mockResolvedValue(updated);
+
+    await expect(
+      controller.updateQuiz(
+        "1",
+        { fi: { questions: [] } },
+        "Bearer token",
+        "application/json"
+      )
+    ).resolves.toEqual({ message: "Updated successfully", updated });
+    expect(quizzes.updateContent).toHaveBeenCalledWith(1, {
+      fi: { questions: [] },
+    });
+  });
+
+  it("rejects a non-JSON quiz update body", async () => {
+    await expect(
+      controller.updateQuiz("1", {}, "Bearer token", "text/plain")
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(quizzes.updateContent).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when the requested quiz cannot be deleted", async () => {
+    quizzes.softDelete.mockResolvedValue(undefined);
+
+    await expect(
+      controller.deleteQuiz("99", "Bearer token")
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(quizzes.softDelete).toHaveBeenCalledWith(99);
+  });
+
+  it("deletes a quiz and returns the service result", async () => {
+    const deleted = { quiz_id: 1 };
+    quizzes.softDelete.mockResolvedValue(deleted);
+
+    await expect(controller.deleteQuiz("1", "Bearer token")).resolves.toEqual({
+      message: "Deleted successfully",
+      deleted,
+    });
+  });
+
+  it("maps unexpected creation errors to an internal server exception", async () => {
+    quizzes.create.mockRejectedValue(new Error("database down"));
+
+    await expect(
+      controller.createQuiz(
+        {
+          world_id: 1,
+          quiz_name_fi: "Tietovisa",
+          quiz_name_en: "Quiz",
+          order_number: 1,
+        },
+        "Bearer token"
+      )
+    ).rejects.toThrow();
   });
 });

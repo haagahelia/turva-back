@@ -156,7 +156,7 @@ export class QuizResultController {
         throw new BadRequestException({ error: "Invalid user ID" });
       }
 
-      return this.quizResults.getHistory(Number(user_id));
+      return await this.quizResults.getHistory(Number(user_id));
     } catch (err) {
       if (err instanceof HttpException) throw err;
       console.error("Error fetching quiz history:", err);
