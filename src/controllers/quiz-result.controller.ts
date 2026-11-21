@@ -3,13 +3,14 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   HttpException,
   InternalServerErrorException,
   Param,
   Post,
   UnauthorizedException,
 } from "@nestjs/common";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import type { AuthUser } from "../auth/auth-user";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -19,7 +20,6 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { verifyToken } from "../utils/verification";
 import { QuizResultService } from "../services/quiz-result.service";
 
 @Controller("quiz-result")
@@ -53,16 +53,15 @@ export class QuizResultController {
   @ApiResponse({ status: 500, description: "Database error" })
   async saveQuizResult(
     @Body() body: Record<string, any>,
-    @Headers("authorization") authorization?: string
+    @CurrentUser() user: AuthUser
   ) {
     try {
       const { quiz_id, correct_answers, time_spent_seconds } = body;
 
-      const decoded = verifyToken(authorization);
-      if (!("email" in decoded) || typeof decoded.email !== "string") {
+      if (typeof user.email !== "string") {
         throw new UnauthorizedException({ error: "Token is invalid" });
       }
-      const email = (decoded as { email: string }).email;
+      const email = user.email;
 
       if (
         !quiz_id ||

@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Headers,
   HttpException,
   InternalServerErrorException,
   Param,
@@ -9,7 +8,10 @@ import {
   Res,
   UnauthorizedException,
 } from "@nestjs/common";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { Public } from "../auth/decorators/public.decorator";
 import type { Response } from "express";
+import type { AuthUser } from "../auth/auth-user";
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -20,7 +22,6 @@ import {
 } from "@nestjs/swagger";
 
 import { PhysicalRewardService } from "../services/physical-reward.service";
-import { verifyToken } from "../utils/verification";
 
 const successHtml = (profileName: string) => `
 <!DOCTYPE html>
@@ -202,15 +203,14 @@ export class PhysicalRewardController {
   @ApiResponse({ status: 404, description: "User not found" })
   @ApiResponse({ status: 500, description: "Database error" })
   async claimPhysicalReward(
-    @Headers("authorization") authorization: string,
+    @CurrentUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response
   ) {
     try {
-      const decoded = verifyToken(authorization);
-      if (typeof decoded.email !== "string") {
+      if (typeof user.email !== "string") {
         throw new UnauthorizedException({ error: "Token is invalid" });
       }
-      const email = decoded.email;
+      const email = user.email;
 
       const { created, ...result } = await this.physicalRewards.claim(email);
       if (!created) {
@@ -226,6 +226,7 @@ export class PhysicalRewardController {
   }
 
   @Get("/verify/:code")
+  @Public()
   @ApiOperation({
     summary: "Verify and claim physical reward",
     description:

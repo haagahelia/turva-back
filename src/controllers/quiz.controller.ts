@@ -23,7 +23,7 @@ import {
 } from "@nestjs/swagger";
 
 import { QuizService } from "../services/quiz.service";
-import { VerificationService } from "../services/verification.service";
+import { Roles } from "../auth/decorators/roles.decorator";
 
 // Shortened example of the quiz_content format used in sql/init.sql
 const QUIZ_CONTENT_EXAMPLE = {
@@ -92,11 +92,9 @@ const parseQuizId = (id: string): number => {
 
 @Controller("quiz")
 @ApiTags("Quiz")
+@ApiBearerAuth("bearerAuth")
 export class QuizController {
-  constructor(
-    private readonly quizzes: QuizService,
-    private readonly verification: VerificationService
-  ) {}
+  constructor(private readonly quizzes: QuizService) {}
 
   @Get("/")
   @ApiOperation({
@@ -191,6 +189,7 @@ export class QuizController {
   }
 
   @Post("/")
+  @Roles("admin")
   @ApiOperation({
     summary: "Add new quiz to db",
     description: "Insert into quiz",
@@ -224,13 +223,8 @@ export class QuizController {
   @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 500, description: "Insert failed" })
   @ApiBearerAuth("bearerAuth")
-  async createQuiz(
-    @Body() body: Record<string, any>,
-    @Headers("authorization") authorization?: string
-  ) {
+  async createQuiz(@Body() body: Record<string, any>) {
     try {
-      await this.verification.verifyAdminToken(authorization);
-
       const {
         world_id,
         quiz_name_fi,
@@ -279,6 +273,7 @@ export class QuizController {
 
   @HttpCode(201)
   @Put("/:id")
+  @Roles("admin")
   @ApiOperation({
     summary: "Update Quiz content",
     description:
@@ -303,11 +298,9 @@ export class QuizController {
   async updateQuiz(
     @Param("id") id: string,
     @Body() body: Record<string, any>,
-    @Headers("authorization") authorization?: string,
     @Headers("content-type") contentType?: string
   ) {
     try {
-      await this.verification.verifyAdminToken(authorization);
       const quizId = parseQuizId(id);
 
       // Only accept a JSON object or array. Other content types (e.g. form
@@ -336,6 +329,7 @@ export class QuizController {
 
   @ApiBearerAuth("bearerAuth")
   @Delete("/:id")
+  @Roles("admin")
   @ApiOperation({
     summary: "Delete quiz by ID",
     description: "Soft delete an active quiz by its ID",
@@ -347,12 +341,8 @@ export class QuizController {
   @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 404, description: "ID not found" })
   @ApiResponse({ status: 500, description: "Delete failed" })
-  async deleteQuiz(
-    @Param("id") id: string,
-    @Headers("authorization") authorization?: string
-  ) {
+  async deleteQuiz(@Param("id") id: string) {
     try {
-      await this.verification.verifyAdminToken(authorization);
       const quizId = parseQuizId(id);
       const deleted = await this.quizzes.softDelete(quizId);
       if (!deleted) {

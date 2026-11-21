@@ -11,7 +11,9 @@ import {
   Post,
   Put,
 } from "@nestjs/common";
+import { Roles } from "../auth/decorators/roles.decorator";
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
@@ -23,6 +25,7 @@ import { InfoService } from "../services/info.service";
 
 @Controller("info")
 @ApiTags("Info Page")
+@ApiBearerAuth("bearerAuth")
 export class InfoController {
   constructor(private readonly info: InfoService) {}
 
@@ -82,6 +85,7 @@ export class InfoController {
   }
 
   @Delete("/:id")
+  @Roles("admin")
   @ApiOperation({
     summary: "Delete info page by ID",
     description: "Delete the info page whose ID matches the supplied ID",
@@ -116,6 +120,7 @@ export class InfoController {
   }
 
   @Post("/")
+  @Roles("admin")
   @ApiOperation({
     summary: "Add new info to db",
     description: "Insert into info",
@@ -152,6 +157,7 @@ export class InfoController {
   }
 
   @Put("/:id")
+  @Roles("admin")
   @ApiOperation({
     summary: "Update info",
     description: "Update info page where ID matches",

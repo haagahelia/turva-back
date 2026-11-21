@@ -7,7 +7,6 @@ import {
   InternalServerErrorException,
   NotFoundException,
   Param,
-  Headers,
   Body,
   Post,
   Delete,
@@ -23,7 +22,7 @@ import {
 } from "@nestjs/swagger";
 
 import { WorldService } from "../services/world.service";
-import { VerificationService } from "../services/verification.service";
+import { Roles } from "../auth/decorators/roles.decorator";
 
 // PostgreSQL INTEGER upper bound; larger ids can never exist
 const MAX_ID = 2147483647;
@@ -38,11 +37,9 @@ const parseWorldId = (id: string): number => {
 
 @Controller("world")
 @ApiTags("World")
+@ApiBearerAuth("bearerAuth")
 export class WorldController {
-  constructor(
-    private readonly worlds: WorldService,
-    private readonly verification: VerificationService
-  ) {}
+  constructor(private readonly worlds: WorldService) {}
 
   @Get("/")
   @ApiOperation({
@@ -85,6 +82,7 @@ export class WorldController {
   }
 
   @Post("/")
+  @Roles("admin")
   @ApiOperation({
     summary: "Create a world",
     description: "Adds a new world",
@@ -114,12 +112,7 @@ export class WorldController {
   @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 500, description: "Insert failed" })
   @ApiBearerAuth("bearerAuth")
-  async createWorld(
-    @Body() body: Record<string, any>,
-    @Headers("authorization") authorization?: string
-  ) {
-    await this.verification.verifyAdminToken(authorization);
-
+  async createWorld(@Body() body: Record<string, any>) {
     const { organization_id, world_name_fi, world_name_en, order_number } =
       body;
 
@@ -145,6 +138,7 @@ export class WorldController {
   }
 
   @Put("/:id")
+  @Roles("admin")
   @ApiOperation({
     summary: "Update a world",
     description:
@@ -176,12 +170,9 @@ export class WorldController {
   @ApiBearerAuth("bearerAuth")
   async updateWorld(
     @Param("id") id: string,
-    @Body() body: Record<string, any>,
-    @Headers("authorization") authorization?: string
+    @Body() body: Record<string, any>
   ) {
     try {
-      await this.verification.verifyAdminToken(authorization);
-
       const worldId = parseWorldId(id);
 
       if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -230,6 +221,7 @@ export class WorldController {
   }
 
   @Delete("/:id")
+  @Roles("admin")
   @ApiOperation({
     summary: "Soft-delete a world",
     description:
@@ -244,13 +236,8 @@ export class WorldController {
   @ApiResponse({ status: 409, description: "World still has active quizzes" })
   @ApiResponse({ status: 500, description: "Delete failed" })
   @ApiBearerAuth("bearerAuth")
-  async deleteWorld(
-    @Param("id") id: string,
-    @Headers("authorization") authorization?: string
-  ) {
+  async deleteWorld(@Param("id") id: string) {
     try {
-      await this.verification.verifyAdminToken(authorization);
-
       const worldId = parseWorldId(id);
 
       const result = await this.worlds.softDelete(worldId);

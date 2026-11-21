@@ -4,10 +4,9 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import bcrypt from "bcryptjs";
-import type { JwtPayload } from "jsonwebtoken";
+import type { AuthUser } from "../auth/auth-user";
 import { EmailOtpRepository } from "../database/repositories/email-otp.repository";
 import { UserRepository } from "../database/repositories/user.repository";
-import { verifyToken } from "../utils/verification";
 
 @Injectable()
 export class VerificationService {
@@ -16,9 +15,7 @@ export class VerificationService {
     private readonly emailOtps: EmailOtpRepository
   ) {}
 
-  async verifyAdminToken(authorization?: string): Promise<JwtPayload> {
-    const decoded = verifyToken(authorization);
-
+  async verifyAdminUser(decoded: AuthUser): Promise<AuthUser> {
     if (
       typeof decoded.email !== "string" ||
       typeof decoded.username !== "string"

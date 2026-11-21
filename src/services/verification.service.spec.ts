@@ -9,7 +9,6 @@ import {
 } from "@jest/globals";
 import { ForbiddenException } from "@nestjs/common";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { EmailOtpRepository } from "../database/repositories/email-otp.repository";
 import { UserRepository } from "../database/repositories/user.repository";
 import { VerificationService } from "./verification.service";
@@ -23,7 +22,6 @@ describe("VerificationService", () => {
     findLatestByEmail: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
   };
   let service: VerificationService;
-  const originalJwtSecret = process.env.JWT_SECRET;
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
@@ -40,11 +38,6 @@ describe("VerificationService", () => {
   afterEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
-    if (originalJwtSecret === undefined) {
-      delete process.env.JWT_SECRET;
-    } else {
-      process.env.JWT_SECRET = originalJwtSecret;
-    }
   });
 
   it("verifies the matching user through UserRepository", async () => {
@@ -107,25 +100,16 @@ describe("VerificationService", () => {
     expect(bcrypt.compare).toHaveBeenCalledWith("123456", "hashed-pin");
   });
 
-  it("requires an admin record for admin tokens", async () => {
-    process.env.JWT_SECRET = "verification-test-secret";
-    const token = jwt.sign(
-      { email: "admin@example.com", username: "admin" },
-      process.env.JWT_SECRET
-    );
+  it("requires an admin record for admin users", async () => {
+    const user = { email: "admin@example.com", username: "admin" };
     users.findAdmin.mockResolvedValue({ user_id: 1 });
 
-    await expect(service.verifyAdminToken(`Bearer ${token}`)).resolves.toEqual(
-      expect.objectContaining({
-        email: "admin@example.com",
-        username: "admin",
-      })
-    );
+    await expect(service.verifyAdminUser(user)).resolves.toEqual(user);
     expect(users.findAdmin).toHaveBeenCalledWith("admin@example.com", "admin");
 
     users.findAdmin.mockResolvedValue(undefined);
-    await expect(
-      service.verifyAdminToken(`Bearer ${token}`)
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.verifyAdminUser(user)).rejects.toBeInstanceOf(
+      ForbiddenException
+    );
   });
 });

@@ -18,7 +18,6 @@ async function bootstrap(): Promise<void> {
         { type: "http", scheme: "bearer", bearerFormat: "JWT" },
         "bearerAuth"
       )
-      .addSecurityRequirements("bearerAuth")
       .build();
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup("docs", app, document, {

@@ -1,5 +1,6 @@
 import { createApp } from "./create-app";
-import request, { Response } from "supertest";
+import supertest, { Response } from "supertest";
+import { JwtService } from "@nestjs/jwt";
 import { pool } from "../src/config/db";
 import { INestApplication } from "@nestjs/common";
 import {
@@ -14,7 +15,6 @@ import {
 } from "@jest/globals";
 
 import { randomUUID } from "crypto";
-import { generateToken } from "../src/utils/tokenGenerator";
 
 let app: INestApplication;
 
@@ -25,6 +25,9 @@ let adminUserId: number;
 //Regular User configuration
 let regularUserToken: string;
 let regularUserId: number;
+
+const request = (server: ReturnType<INestApplication["getHttpServer"]>) =>
+  supertest(server).set("Authorization", `Bearer ${adminToken}`);
 
 beforeAll(async () => {
   app = await createApp();
@@ -55,7 +58,7 @@ describe("Quiz api integration tests", () => {
     );
 
     adminUserId = adminResult.rows[0].user_id;
-    adminToken = generateToken(email, username);
+    adminToken = app.get(JwtService).sign({ email, username });
 
     //REGULAR USER CREATION
     const regularUsername = `quiz-user-${suffix}`;
@@ -70,7 +73,10 @@ describe("Quiz api integration tests", () => {
     );
 
     regularUserId = regularUserResult.rows[0].user_id;
-    regularUserToken = generateToken(regularEmail, regularUsername);
+    regularUserToken = app.get(JwtService).sign({
+      email: regularEmail,
+      username: regularUsername,
+    });
 
     const worldResult = await pool.query(
       `INSERT INTO World
@@ -307,7 +313,7 @@ describe("Quiz api integration tests", () => {
       };
 
       it("return 401 when no token is provided", async () => {
-        const res = await request(app.getHttpServer())
+        const res = await supertest(app.getHttpServer())
           .post("/api/quiz")
           .send(validQuiz);
         expect(res.statusCode).toBe(401);
@@ -534,7 +540,7 @@ describe("Quiz api integration tests", () => {
       const validContent = { question: "Updated test question" };
 
       it("returns 401 when no token is provided", async () => {
-        const res = await request(app.getHttpServer())
+        const res = await supertest(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
           .send(validContent);
 

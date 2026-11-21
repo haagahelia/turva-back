@@ -6,12 +6,13 @@ import {
   Post,
   UnauthorizedException,
 } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { Public } from "../auth/decorators/public.decorator";
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { generatePin } from "../utils/pinGenerator";
 import bcrypt from "bcryptjs";
-import { validateEmail } from "../utils/verification";
-import { generateToken } from "../utils/tokenGenerator";
+import { validateEmail } from "../utils/email-validation";
 import { sendEmail } from "../utils/emailer";
 import { AuthService } from "../services/auth.service";
 import { VerificationService } from "../services/verification.service";
@@ -19,10 +20,12 @@ import { VerificationService } from "../services/verification.service";
 // TODO?: Add email confirmation before completing register??
 @Controller("auth")
 @ApiTags("Login")
+@Public()
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
-    private readonly verification: VerificationService
+    private readonly verification: VerificationService,
+    private readonly jwt: JwtService
   ) {}
 
   @Post("/register")
@@ -163,7 +166,7 @@ export class AuthController {
     );
 
     if (isVerified) {
-      const token = generateToken(email, username);
+      const token = this.jwt.sign({ email, username });
       return {
         message: "Login successful!",
         token: token,

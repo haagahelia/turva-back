@@ -1,10 +1,10 @@
 import { createApp } from "./create-app";
-import request from "supertest";
+import supertest from "supertest";
+import { JwtService } from "@nestjs/jwt";
 import { pool } from "../src/config/db";
 import { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { randomUUID } from "crypto";
-import { generateToken } from "../src/utils/tokenGenerator";
 
 let app: INestApplication;
 
@@ -12,6 +12,9 @@ let adminToken: string;
 let regularUserToken: string;
 const userIds: number[] = [];
 const worldIds: number[] = [];
+
+const request = (server: ReturnType<INestApplication["getHttpServer"]>) =>
+  supertest(server).set("Authorization", `Bearer ${adminToken}`);
 
 const createUser = async (role: "admin" | "user"): Promise<string> => {
   const suffix = randomUUID();
@@ -24,7 +27,7 @@ const createUser = async (role: "admin" | "user"): Promise<string> => {
     [1, username, email, role]
   );
   userIds.push(result.rows[0].user_id);
-  return generateToken(email, username);
+  return app.get(JwtService).sign({ email, username });
 };
 
 const createWorld = async (): Promise<number> => {
@@ -97,7 +100,7 @@ describe("World api integration tests", () => {
     };
 
     it("returns 401 without a token", async () => {
-      const res = await request(app.getHttpServer())
+      const res = await supertest(app.getHttpServer())
         .post("/api/world")
         .send(newWorld);
       expect(res.statusCode).toBe(401);
@@ -139,7 +142,7 @@ describe("World api integration tests", () => {
 
     it("returns 401 without a token", async () => {
       const worldId = await createWorld();
-      const res = await request(app.getHttpServer())
+      const res = await supertest(app.getHttpServer())
         .put(`/api/world/${worldId}`)
         .send(update);
       expect(res.statusCode).toBe(401);
@@ -228,7 +231,7 @@ describe("World api integration tests", () => {
   describe("DELETE /api/world/:id", () => {
     it("returns 401 without a token", async () => {
       const worldId = await createWorld();
-      const res = await request(app.getHttpServer()).delete(
+      const res = await supertest(app.getHttpServer()).delete(
         `/api/world/${worldId}`
       );
       expect(res.statusCode).toBe(401);
