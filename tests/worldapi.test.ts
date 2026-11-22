@@ -14,7 +14,7 @@ const userIds: number[] = [];
 const worldIds: number[] = [];
 
 const request = (server: ReturnType<INestApplication["getHttpServer"]>) =>
-  supertest(server).set("Authorization", `Bearer ${adminToken}`);
+  supertest.agent(server).set("Authorization", `Bearer ${adminToken}`);
 
 const createUser = async (role: "admin" | "user"): Promise<string> => {
   const suffix = randomUUID();
