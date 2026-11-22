@@ -5,6 +5,8 @@ Backend API server for the TurvaOppi
 ## Documentation
 
 - Project guide: [ProjectGuide.md](ProjectGuide.md)
+- Proposals:
+  - New Authentication Architecture: [docs/proposals/new-authentication-architecture.md](docs/proposals/new-authentication-architecture.md)
 
 ## Project Setup
 

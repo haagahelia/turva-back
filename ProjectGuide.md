@@ -214,6 +214,11 @@ Controller implementations are in [src/controllers](src/controllers).
   result submission and reward claiming remain available to authenticated
   users.
 
+### 7.1. Proposal: New Authentication and Authorization Architecture
+
+See [New Authentication and Authorization Architecture Proposal](docs/proposals/new-authentication-architecture.md)
+for current and proposed system diagrams.
+
 ## 8. Infrastructure in Repo
 
 **Docker**
