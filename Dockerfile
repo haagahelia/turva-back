@@ -20,6 +20,8 @@ ENV NODE_ENV=production
 
 COPY --from=predeploy /usr/src/app/node_modules ./node_modules
 COPY --from=predeploy /usr/src/app/dist ./dist
+# Drizzle migrations, applied by DatabaseService at startup
+COPY --from=predeploy /usr/src/app/drizzle ./drizzle
 COPY package.json ./
 
 EXPOSE 3000

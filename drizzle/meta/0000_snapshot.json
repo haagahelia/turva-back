@@ -4,8 +4,8 @@
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.AppPage": {
-      "name": "AppPage",
+    "public.apppage": {
+      "name": "apppage",
       "schema": "",
       "columns": {
         "page_id": {
@@ -48,16 +48,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "AppPage_organization_id_Organization_organization_id_fk": {
-          "name": "AppPage_organization_id_Organization_organization_id_fk",
-          "tableFrom": "AppPage",
-          "tableTo": "Organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "organization_id"
-          ],
+        "apppage_organization_id_organization_organization_id_fk": {
+          "name": "apppage_organization_id_organization_organization_id_fk",
+          "tableFrom": "apppage",
+          "tableTo": "organization",
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["organization_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -68,8 +64,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.User_Completed_Quiz": {
-      "name": "User_Completed_Quiz",
+    "public.user_completed_quiz": {
+      "name": "user_completed_quiz",
       "schema": "",
       "columns": {
         "user_id": {
@@ -108,40 +104,29 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "User_Completed_Quiz_user_id_TurvaUser_user_id_fk": {
-          "name": "User_Completed_Quiz_user_id_TurvaUser_user_id_fk",
-          "tableFrom": "User_Completed_Quiz",
-          "tableTo": "TurvaUser",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+        "user_completed_quiz_user_id_turvauser_user_id_fk": {
+          "name": "user_completed_quiz_user_id_turvauser_user_id_fk",
+          "tableFrom": "user_completed_quiz",
+          "tableTo": "turvauser",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "User_Completed_Quiz_quiz_id_Quiz_quiz_id_fk": {
-          "name": "User_Completed_Quiz_quiz_id_Quiz_quiz_id_fk",
-          "tableFrom": "User_Completed_Quiz",
-          "tableTo": "Quiz",
-          "columnsFrom": [
-            "quiz_id"
-          ],
-          "columnsTo": [
-            "quiz_id"
-          ],
+        "user_completed_quiz_quiz_id_quiz_quiz_id_fk": {
+          "name": "user_completed_quiz_quiz_id_quiz_quiz_id_fk",
+          "tableFrom": "user_completed_quiz",
+          "tableTo": "quiz",
+          "columnsFrom": ["quiz_id"],
+          "columnsTo": ["quiz_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
-        "User_Completed_Quiz_user_id_quiz_id_pk": {
-          "name": "User_Completed_Quiz_user_id_quiz_id_pk",
-          "columns": [
-            "user_id",
-            "quiz_id"
-          ]
+        "user_completed_quiz_user_id_quiz_id_pk": {
+          "name": "user_completed_quiz_user_id_quiz_id_pk",
+          "columns": ["user_id", "quiz_id"]
         }
       },
       "uniqueConstraints": {},
@@ -149,8 +134,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.User_Completed_World": {
-      "name": "User_Completed_World",
+    "public.user_completed_world": {
+      "name": "user_completed_world",
       "schema": "",
       "columns": {
         "user_id": {
@@ -175,40 +160,29 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "User_Completed_World_user_id_TurvaUser_user_id_fk": {
-          "name": "User_Completed_World_user_id_TurvaUser_user_id_fk",
-          "tableFrom": "User_Completed_World",
-          "tableTo": "TurvaUser",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+        "user_completed_world_user_id_turvauser_user_id_fk": {
+          "name": "user_completed_world_user_id_turvauser_user_id_fk",
+          "tableFrom": "user_completed_world",
+          "tableTo": "turvauser",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "User_Completed_World_world_id_World_world_id_fk": {
-          "name": "User_Completed_World_world_id_World_world_id_fk",
-          "tableFrom": "User_Completed_World",
-          "tableTo": "World",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "world_id"
-          ],
+        "user_completed_world_world_id_world_world_id_fk": {
+          "name": "user_completed_world_world_id_world_world_id_fk",
+          "tableFrom": "user_completed_world",
+          "tableTo": "world",
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["world_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
-        "User_Completed_World_user_id_world_id_pk": {
-          "name": "User_Completed_World_user_id_world_id_pk",
-          "columns": [
-            "user_id",
-            "world_id"
-          ]
+        "user_completed_world_user_id_world_id_pk": {
+          "name": "user_completed_world_user_id_world_id_pk",
+          "columns": ["user_id", "world_id"]
         }
       },
       "uniqueConstraints": {},
@@ -216,8 +190,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.CrisisTeam": {
-      "name": "CrisisTeam",
+    "public.crisisteam": {
+      "name": "crisisteam",
       "schema": "",
       "columns": {
         "contact_id": {
@@ -284,16 +258,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "CrisisTeam_organization_id_Organization_organization_id_fk": {
-          "name": "CrisisTeam_organization_id_Organization_organization_id_fk",
-          "tableFrom": "CrisisTeam",
-          "tableTo": "Organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "organization_id"
-          ],
+        "crisisteam_organization_id_organization_organization_id_fk": {
+          "name": "crisisteam_organization_id_organization_organization_id_fk",
+          "tableFrom": "crisisteam",
+          "tableTo": "organization",
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["organization_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -386,8 +356,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.Organization": {
-      "name": "Organization",
+    "public.organization": {
+      "name": "organization",
       "schema": "",
       "columns": {
         "organization_id": {
@@ -436,8 +406,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.Physical_Reward": {
-      "name": "Physical_Reward",
+    "public.physical_reward": {
+      "name": "physical_reward",
       "schema": "",
       "columns": {
         "reward_id": {
@@ -474,36 +444,30 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "Physical_Reward_user_id_TurvaUser_user_id_fk": {
-          "name": "Physical_Reward_user_id_TurvaUser_user_id_fk",
-          "tableFrom": "Physical_Reward",
-          "tableTo": "TurvaUser",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "user_id"
-          ],
+        "physical_reward_user_id_turvauser_user_id_fk": {
+          "name": "physical_reward_user_id_turvauser_user_id_fk",
+          "tableFrom": "physical_reward",
+          "tableTo": "turvauser",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["user_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "Physical_Reward_reward_code_key": {
-          "name": "Physical_Reward_reward_code_key",
+        "physical_reward_reward_code_key": {
+          "name": "physical_reward_reward_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "reward_code"
-          ]
+          "columns": ["reward_code"]
         }
       },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.Quiz": {
-      "name": "Quiz",
+    "public.quiz": {
+      "name": "quiz",
       "schema": "",
       "columns": {
         "quiz_id": {
@@ -558,16 +522,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "Quiz_world_id_World_world_id_fk": {
-          "name": "Quiz_world_id_World_world_id_fk",
-          "tableFrom": "Quiz",
-          "tableTo": "World",
-          "columnsFrom": [
-            "world_id"
-          ],
-          "columnsTo": [
-            "world_id"
-          ],
+        "quiz_world_id_world_world_id_fk": {
+          "name": "quiz_world_id_world_world_id_fk",
+          "tableFrom": "quiz",
+          "tableTo": "world",
+          "columnsFrom": ["world_id"],
+          "columnsTo": ["world_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -578,8 +538,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.TurvaUser": {
-      "name": "TurvaUser",
+    "public.turvauser": {
+      "name": "turvauser",
       "schema": "",
       "columns": {
         "user_id": {
@@ -635,41 +595,35 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "TurvaUser_organization_id_Organization_organization_id_fk": {
-          "name": "TurvaUser_organization_id_Organization_organization_id_fk",
-          "tableFrom": "TurvaUser",
-          "tableTo": "Organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "organization_id"
-          ],
+        "turvauser_organization_id_organization_organization_id_fk": {
+          "name": "turvauser_organization_id_organization_organization_id_fk",
+          "tableFrom": "turvauser",
+          "tableTo": "organization",
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["organization_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "TurvaUser_profile_name_key": {
-          "name": "TurvaUser_profile_name_key",
+        "turvauser_profile_name_key": {
+          "name": "turvauser_profile_name_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "profile_name"
-          ]
+          "columns": ["profile_name"]
         }
       },
       "policies": {},
       "checkConstraints": {
         "turvauser_role_check": {
           "name": "turvauser_role_check",
-          "value": "\"TurvaUser\".\"role\" IN ('user', 'admin')"
+          "value": "\"turvauser\".\"role\" IN ('user', 'admin')"
         }
       },
       "isRLSEnabled": false
     },
-    "public.World": {
-      "name": "World",
+    "public.world": {
+      "name": "world",
       "schema": "",
       "columns": {
         "world_id": {
@@ -718,16 +672,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "World_organization_id_Organization_organization_id_fk": {
-          "name": "World_organization_id_Organization_organization_id_fk",
-          "tableFrom": "World",
-          "tableTo": "Organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "organization_id"
-          ],
+        "world_organization_id_organization_organization_id_fk": {
+          "name": "world_organization_id_organization_organization_id_fk",
+          "tableFrom": "world",
+          "tableTo": "organization",
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["organization_id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
