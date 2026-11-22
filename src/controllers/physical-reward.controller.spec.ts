@@ -10,7 +10,6 @@ import {
 import { ForbiddenException } from "@nestjs/common";
 import type { Response } from "express";
 import { PhysicalRewardService } from "../services/physical-reward.service";
-import * as verification from "../utils/verification";
 import { PhysicalRewardController } from "./physical-reward.controller";
 
 describe("PhysicalRewardController", () => {
@@ -47,9 +46,6 @@ describe("PhysicalRewardController", () => {
   });
 
   it("passes the verified email to the reward service", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
-    });
     physicalRewards.claim.mockResolvedValue({
       created: true,
       alreadyClaimed: false,
@@ -57,30 +53,31 @@ describe("PhysicalRewardController", () => {
     });
 
     await expect(
-      controller.claimPhysicalReward("Bearer token", response().response)
+      controller.claimPhysicalReward(
+        { email: "learner@example.com" },
+        response().response
+      )
     ).resolves.toEqual({ alreadyClaimed: false, reward_code: "abc" });
     expect(physicalRewards.claim).toHaveBeenCalledWith("learner@example.com");
   });
 
   it("rejects a claim when the token has no email", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({});
-
     await expect(
-      controller.claimPhysicalReward("Bearer token", response().response)
+      controller.claimPhysicalReward({}, response().response)
     ).rejects.toThrow();
     expect(physicalRewards.claim).not.toHaveBeenCalled();
   });
 
   it("propagates reward eligibility errors", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
-    });
     physicalRewards.claim.mockRejectedValue(
       new ForbiddenException({ error: "Not all worlds completed" })
     );
 
     await expect(
-      controller.claimPhysicalReward("Bearer token", response().response)
+      controller.claimPhysicalReward(
+        { email: "learner@example.com" },
+        response().response
+      )
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 

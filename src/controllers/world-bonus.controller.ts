@@ -6,12 +6,19 @@ import {
   InternalServerErrorException,
   Param,
 } from "@nestjs/common";
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 
 import { WorldBonusService } from "../services/world-bonus.service";
 
 @Controller("world-bonus")
 @ApiTags("World Bonus")
+@ApiBearerAuth("bearerAuth")
 export class WorldBonusController {
   constructor(private readonly worldBonus: WorldBonusService) {}
 

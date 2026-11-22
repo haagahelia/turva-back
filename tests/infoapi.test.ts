@@ -1,15 +1,34 @@
 import { createApp } from "./create-app";
-import request from "supertest";
+import supertest from "supertest";
 import { INestApplication } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import { pool } from "@/config/db";
+import { randomUUID } from "crypto";
 
 let app: INestApplication;
+let adminUserId: number;
+let adminToken: string;
+
+const request = (server: ReturnType<INestApplication["getHttpServer"]>) =>
+  supertest(server).set("Authorization", `Bearer ${adminToken}`);
 
 beforeAll(async () => {
   app = await createApp();
+  const suffix = randomUUID();
+  const username = `info-admin-${suffix}`;
+  const email = `info-admin-${suffix}@turva.back.fi`;
+  const result = await pool.query(
+    `INSERT INTO TurvaUser (organization_id, profile_name, email_address, role)
+     VALUES ($1, $2, $3, 'admin')
+     RETURNING user_id`,
+    [1, username, email]
+  );
+  adminUserId = result.rows[0].user_id;
+  adminToken = app.get(JwtService).sign({ email, username });
 });
 
 afterAll(async () => {
+  await pool.query("DELETE FROM TurvaUser WHERE user_id = $1", [adminUserId]);
   await app.close();
 });
 

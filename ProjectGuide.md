@@ -37,8 +37,10 @@ This guide is a handoff for developers who need to continue working on the Turva
 **Technology stack**
 
 - Node.js, TypeScript, NestJS (Express platform)
+- Environment configuration via `@nestjs/config`
 - PostgreSQL via Drizzle ORM and the `pg` connection pool
-- JWT auth via `jsonwebtoken`
+- JWT signing via `@nestjs/jwt` and authentication via `@nestjs/passport` with
+  `passport-jwt`
 - OTP hashing via `bcryptjs`
 - Email sending via `nodemailer` (Ethereal test SMTP)
 - OpenAPI documentation via `@nestjs/swagger`
@@ -196,9 +198,21 @@ Controller implementations are in [src/controllers](src/controllers).
 
 **JWT usage**
 
-- JWT is generated in [src/utils/tokenGenerator.ts](src/utils/tokenGenerator.ts).
-- JWT is verified in [src/utils/verification.ts](src/utils/verification.ts).
-- Auth checks are performed inside handlers, not as Express middleware.
+- Tokens are signed through Nest's `JwtService` and validated by the
+  [JwtStrategy](src/auth/jwt.strategy.ts) using `passport-jwt`.
+- The global [InfrastructureModule](src/infrastructure/infrastructure.module.ts)
+  retrieves `JWT_SECRET` through `ConfigModule` and exports it as an injectable
+  value; a nonempty secret is required, and the strategy rejects expired tokens.
+- [AuthModule](src/auth/auth.module.ts) applies JWT authentication globally:
+  routes require a valid `Bearer` token unless marked with `@Public()`.
+- Public routes are the status root and ping, all `/auth` routes, and
+  `GET /physical-reward/verify/:code` for QR redemption.
+- Admin access is declared with `@Roles("admin")` on info, quiz, world, and
+  crisis-team management mutations. The guard checks the current active user
+  record, so role changes take effect without waiting for a token to expire.
+- All other protected routes require authentication but no admin role; quiz
+  result submission and reward claiming remain available to authenticated
+  users.
 
 ## 8. Infrastructure in Repo
 
@@ -226,16 +240,21 @@ Controller implementations are in [src/controllers](src/controllers).
 
 **Tests present**
 
+- The API suites below create the Nest app from [tests/create-app.ts](tests/create-app.ts)
+  and exercise HTTP routes against PostgreSQL; they complement unit specs under `src/`.
 - Info API tests in [tests/infoapi.test.ts](tests/infoapi.test.ts).
 - Auth API tests in [tests/loginapi.test.ts](tests/loginapi.test.ts).
 - Quiz API tests in [tests/quizapi.test.ts](tests/quizapi.test.ts).
+- User API tests in [tests/userapi.test.ts](tests/userapi.test.ts).
+- World API tests in [tests/worldapi.test.ts](tests/worldapi.test.ts).
 
 ## 10. Not Present in This Repo
 
 - No feature-specific NestJS module per domain; controllers are registered in
   `AppModule`, with application services and repositories grouped in their
   respective modules.
-- No explicit role-based access control or privileged-route guards.
+- No domain-specific modules for controller groups; routes remain registered in
+  `AppModule`.
 - No background workers, queues, or scheduled jobs.
 - No monitoring or tracing integration.
 
@@ -257,8 +276,8 @@ Controller implementations are in [src/controllers](src/controllers).
 - Database module: [src/database/database.module.ts](src/database/database.module.ts)
 - Database repositories: [src/database/repositories](src/database/repositories)
 - DB config: [src/config/db.ts](src/config/db.ts)
+- Infrastructure module: [src/infrastructure/infrastructure.module.ts](src/infrastructure/infrastructure.module.ts)
 - CORS config: [src/config/cors.ts](src/config/cors.ts)
-- Auth helpers: [src/utils/verification.ts](src/utils/verification.ts)
-- JWT helper: [src/utils/tokenGenerator.ts](src/utils/tokenGenerator.ts)
+- JWT strategy: [src/auth/jwt.strategy.ts](src/auth/jwt.strategy.ts)
 - Email helper: [src/utils/emailer.ts](src/utils/emailer.ts)
 - Swagger setup: [src/app.ts](src/app.ts)

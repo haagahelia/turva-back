@@ -1,4 +1,5 @@
 import { Controller, Get, Header } from "@nestjs/common";
+import { Public } from "../auth/decorators/public.decorator";
 import {
   ApiOperation,
   ApiProduces,
@@ -8,6 +9,7 @@ import {
 
 @Controller()
 @ApiTags("Status")
+@Public()
 export class StatusController {
   @Get("ping")
   @ApiOperation({

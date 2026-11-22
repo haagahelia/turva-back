@@ -12,13 +12,13 @@ import {
   ConflictException,
   UnauthorizedException,
 } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import bcrypt from "bcryptjs";
 import { AuthService } from "../services/auth.service";
 import { VerificationService } from "../services/verification.service";
 import * as emailer from "../utils/emailer";
 import * as pinGenerator from "../utils/pinGenerator";
-import * as tokenGenerator from "../utils/tokenGenerator";
-import * as verification from "../utils/verification";
+import * as emailValidation from "../utils/email-validation";
 import { AuthController } from "./auth.controller";
 
 describe("AuthController", () => {
@@ -30,6 +30,9 @@ describe("AuthController", () => {
     verifyUser: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
     verifyPin: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
   };
+  const jwt = {
+    sign: jest.fn<(...args: unknown[]) => string>(),
+  };
   let controller: AuthController;
 
   beforeEach(async () => {
@@ -38,6 +41,7 @@ describe("AuthController", () => {
       providers: [
         { provide: AuthService, useValue: auth },
         { provide: VerificationService, useValue: verificationService },
+        { provide: JwtService, useValue: jwt },
       ],
     }).compile();
 
@@ -57,7 +61,7 @@ describe("AuthController", () => {
   });
 
   it("rejects an invalid registration email", async () => {
-    jest.spyOn(verification, "validateEmail").mockReturnValue(false);
+    jest.spyOn(emailValidation, "validateEmail").mockReturnValue(false);
 
     await expect(
       controller.registerUser({
@@ -69,7 +73,7 @@ describe("AuthController", () => {
   });
 
   it("registers through AuthService", async () => {
-    jest.spyOn(verification, "validateEmail").mockReturnValue(true);
+    jest.spyOn(emailValidation, "validateEmail").mockReturnValue(true);
 
     await controller.registerUser({
       username: "learner",
@@ -85,7 +89,7 @@ describe("AuthController", () => {
   });
 
   it("propagates duplicate registration from AuthService", async () => {
-    jest.spyOn(verification, "validateEmail").mockReturnValue(true);
+    jest.spyOn(emailValidation, "validateEmail").mockReturnValue(true);
     auth.registerUser.mockRejectedValue(
       new ConflictException("Email or username already in use")
     );
@@ -112,7 +116,7 @@ describe("AuthController", () => {
   });
 
   it("rejects an invalid login email", async () => {
-    jest.spyOn(verification, "validateEmail").mockReturnValue(false);
+    jest.spyOn(emailValidation, "validateEmail").mockReturnValue(false);
 
     await expect(
       controller.requestLoginCode({
@@ -124,7 +128,7 @@ describe("AuthController", () => {
   });
 
   it("rejects login for unknown credentials", async () => {
-    jest.spyOn(verification, "validateEmail").mockReturnValue(true);
+    jest.spyOn(emailValidation, "validateEmail").mockReturnValue(true);
     verificationService.verifyUser.mockResolvedValue(false);
 
     await expect(
@@ -136,7 +140,7 @@ describe("AuthController", () => {
   });
 
   it("saves and emails a login code for valid credentials", async () => {
-    jest.spyOn(verification, "validateEmail").mockReturnValue(true);
+    jest.spyOn(emailValidation, "validateEmail").mockReturnValue(true);
     verificationService.verifyUser.mockResolvedValue(true);
     jest.spyOn(pinGenerator, "generatePin").mockReturnValue("123456");
     jest.spyOn(bcrypt, "hash").mockResolvedValue("hashed-pin" as never);
@@ -171,7 +175,7 @@ describe("AuthController", () => {
 
   it("returns a token for a verified login code", async () => {
     verificationService.verifyPin.mockResolvedValue(true);
-    jest.spyOn(tokenGenerator, "generateToken").mockReturnValue("test-token");
+    jwt.sign.mockReturnValue("test-token");
 
     await expect(
       controller.verifyLoginCode({
@@ -182,6 +186,10 @@ describe("AuthController", () => {
     ).resolves.toEqual({
       message: "Login successful!",
       token: "test-token",
+    });
+    expect(jwt.sign).toHaveBeenCalledWith({
+      email: "learner@example.com",
+      username: "learner",
     });
   });
 

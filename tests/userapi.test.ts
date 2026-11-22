@@ -1,10 +1,10 @@
 import { createApp } from "./create-app";
 import request from "supertest";
+import { JwtService } from "@nestjs/jwt";
 import { pool } from "../src/config/db";
 import { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { randomUUID } from "crypto";
-import { generateToken } from "../src/utils/tokenGenerator";
 
 let app: INestApplication;
 const userIds: number[] = [];
@@ -20,7 +20,11 @@ const createUser = async (role: "admin" | "user") => {
     [1, username, email, role]
   );
   userIds.push(result.rows[0].user_id);
-  return { username, email, token: generateToken(email, username) };
+  return {
+    username,
+    email,
+    token: app.get(JwtService).sign({ email, username }),
+  };
 };
 
 beforeAll(async () => {
@@ -62,7 +66,10 @@ describe("GET /api/user/profile", () => {
 
   it("returns 404 when the token's profile name does not match the email", async () => {
     const user = await createUser("admin");
-    const token = generateToken(user.email, "someone-else");
+    const token = app.get(JwtService).sign({
+      email: user.email,
+      username: "someone-else",
+    });
     const res = await request(app.getHttpServer())
       .get("/api/user/profile")
       .set("Authorization", `Bearer ${token}`);

@@ -12,7 +12,6 @@ import {
   ConflictException,
   NotFoundException,
 } from "@nestjs/common";
-import { VerificationService } from "../services/verification.service";
 import { WorldService } from "../services/world.service";
 import { WorldController } from "./world.controller";
 
@@ -24,18 +23,12 @@ describe("WorldController", () => {
     update: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
     softDelete: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
   };
-  const verification = {
-    verifyAdminToken: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
-  };
   let controller: WorldController;
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [WorldController],
-      providers: [
-        { provide: WorldService, useValue: worlds },
-        { provide: VerificationService, useValue: verification },
-      ],
+      providers: [{ provide: WorldService, useValue: worlds }],
     }).compile();
 
     controller = module.get(WorldController);
@@ -76,37 +69,30 @@ describe("WorldController", () => {
     await expect(controller.getWorldById("2")).resolves.toBe(world);
   });
 
-  it("creates a world through WorldService after admin verification", async () => {
+  it("creates a world through WorldService", async () => {
     const world = { world_id: 3 };
     worlds.create.mockResolvedValue(world);
 
     await expect(
-      controller.createWorld(
-        {
-          organization_id: 1,
-          world_name_fi: "Turvallisuus",
-          world_name_en: "Safety",
-          order_number: 1,
-        },
-        "Bearer token"
-      )
+      controller.createWorld({
+        organization_id: 1,
+        world_name_fi: "Turvallisuus",
+        world_name_en: "Safety",
+        order_number: 1,
+      })
     ).resolves.toBe(world);
 
-    expect(verification.verifyAdminToken).toHaveBeenCalledWith("Bearer token");
     expect(worlds.create).toHaveBeenCalledWith(1, "Turvallisuus", "Safety", 1);
   });
 
   it("rejects invalid world fields", async () => {
     await expect(
-      controller.createWorld(
-        {
-          organization_id: 0,
-          world_name_fi: "",
-          world_name_en: "",
-          order_number: -1,
-        },
-        "Bearer token"
-      )
+      controller.createWorld({
+        organization_id: 0,
+        world_name_fi: "",
+        world_name_en: "",
+        order_number: -1,
+      })
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(worlds.create).not.toHaveBeenCalled();
   });
@@ -116,29 +102,25 @@ describe("WorldController", () => {
     worlds.update.mockResolvedValue(updated);
 
     await expect(
-      controller.updateWorld(
-        "3",
-        {
-          world_name_fi: "Uusi",
-          world_name_en: "New",
-          order_number: 2,
-        },
-        "Bearer token"
-      )
+      controller.updateWorld("3", {
+        world_name_fi: "Uusi",
+        world_name_en: "New",
+        order_number: 2,
+      })
     ).resolves.toEqual({ message: "Updated successfully", updated });
     expect(worlds.update).toHaveBeenCalledWith(3, "Uusi", "New", 2);
   });
 
   it("rejects invalid update ids and incomplete update fields", async () => {
+    await expect(controller.updateWorld("0", {})).rejects.toBeInstanceOf(
+      BadRequestException
+    );
     await expect(
-      controller.updateWorld("0", {}, "Bearer token")
-    ).rejects.toBeInstanceOf(BadRequestException);
-    await expect(
-      controller.updateWorld(
-        "3",
-        { world_name_fi: "", world_name_en: "New", order_number: 1 },
-        "Bearer token"
-      )
+      controller.updateWorld("3", {
+        world_name_fi: "",
+        world_name_en: "New",
+        order_number: 1,
+      })
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(worlds.update).not.toHaveBeenCalled();
   });
@@ -147,30 +129,22 @@ describe("WorldController", () => {
     worlds.update.mockResolvedValue(undefined);
 
     await expect(
-      controller.updateWorld(
-        "3",
-        {
-          world_name_fi: "Uusi",
-          world_name_en: "New",
-          order_number: 2,
-        },
-        "Bearer token"
-      )
+      controller.updateWorld("3", {
+        world_name_fi: "Uusi",
+        world_name_en: "New",
+        order_number: 2,
+      })
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it("rejects attempts to change a world's organization", async () => {
     await expect(
-      controller.updateWorld(
-        "3",
-        {
-          organization_id: 2,
-          world_name_fi: "Uusi",
-          world_name_en: "New",
-          order_number: 2,
-        },
-        "Bearer token"
-      )
+      controller.updateWorld("3", {
+        organization_id: 2,
+        world_name_fi: "Uusi",
+        world_name_en: "New",
+        order_number: 2,
+      })
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(worlds.update).not.toHaveBeenCalled();
   });
@@ -181,34 +155,34 @@ describe("WorldController", () => {
       count: 2,
     });
 
-    await expect(
-      controller.deleteWorld("3", "Bearer token")
-    ).rejects.toBeInstanceOf(ConflictException);
+    await expect(controller.deleteWorld("3")).rejects.toBeInstanceOf(
+      ConflictException
+    );
     expect(worlds.softDelete).toHaveBeenCalledWith(3);
   });
 
   it("returns not found when the world is absent during deletion", async () => {
     worlds.softDelete.mockResolvedValue({ kind: "not-found" });
 
-    await expect(
-      controller.deleteWorld("99", "Bearer token")
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(controller.deleteWorld("99")).rejects.toBeInstanceOf(
+      NotFoundException
+    );
   });
 
   it("deletes a world without active quizzes", async () => {
     const world = { world_id: 3 };
     worlds.softDelete.mockResolvedValue({ kind: "deleted", world });
 
-    await expect(controller.deleteWorld("3", "Bearer token")).resolves.toEqual({
+    await expect(controller.deleteWorld("3")).resolves.toEqual({
       message: "Deleted successfully",
       deleted: world,
     });
   });
 
   it("rejects invalid delete ids", async () => {
-    await expect(
-      controller.deleteWorld("0", "Bearer token")
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.deleteWorld("0")).rejects.toBeInstanceOf(
+      BadRequestException
+    );
     expect(worlds.softDelete).not.toHaveBeenCalled();
   });
 
@@ -216,15 +190,11 @@ describe("WorldController", () => {
     worlds.update.mockRejectedValue(new Error("database down"));
 
     await expect(
-      controller.updateWorld(
-        "3",
-        {
-          world_name_fi: "Uusi",
-          world_name_en: "New",
-          order_number: 2,
-        },
-        "Bearer token"
-      )
+      controller.updateWorld("3", {
+        world_name_fi: "Uusi",
+        world_name_en: "New",
+        order_number: 2,
+      })
     ).rejects.toThrow();
   });
 });

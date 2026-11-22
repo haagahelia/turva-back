@@ -1,11 +1,12 @@
 import {
   Controller,
   Get,
-  Headers,
   HttpException,
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import type { AuthUser } from "../auth/auth-user";
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -13,7 +14,6 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 
-import { verifyToken } from "../utils/verification";
 import { UserService } from "../services/user.service";
 
 @Controller("user")
@@ -35,18 +35,17 @@ export class UserController {
   })
   @ApiResponse({ status: 404, description: "User not found" })
   @ApiResponse({ status: 500, description: "Database query failed" })
-  async getProfile(@Headers("authorization") authorization?: string) {
+  async getProfile(@CurrentUser() currentUser: AuthUser) {
     try {
-      const decoded = verifyToken(authorization);
-
-      if (!decoded || typeof decoded !== "object" || !("email" in decoded)) {
+      if (typeof currentUser.email !== "string") {
         throw new HttpException({ error: "Token is invalid" }, 401);
       }
 
-      const { email, username } = decoded as {
-        email: string;
-        username?: string;
-      };
+      const email = currentUser.email;
+      const username =
+        typeof currentUser.username === "string"
+          ? currentUser.username
+          : undefined;
       const user = await this.users.findProfile(email, username);
 
       if (!user) {

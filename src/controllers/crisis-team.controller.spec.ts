@@ -9,7 +9,6 @@ import {
 } from "@jest/globals";
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { CrisisTeamService } from "../services/crisis-team.service";
-import { VerificationService } from "../services/verification.service";
 import { CrisisTeamController } from "./crisis-team.controller";
 
 describe("CrisisTeamController", () => {
@@ -20,18 +19,12 @@ describe("CrisisTeamController", () => {
     create: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
     update: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
   };
-  const verification = {
-    verifyAdminToken: jest.fn<(...args: unknown[]) => Promise<unknown>>(),
-  };
   let controller: CrisisTeamController;
 
   beforeEach(async () => {
     const module = await Test.createTestingModule({
       controllers: [CrisisTeamController],
-      providers: [
-        { provide: CrisisTeamService, useValue: crisisTeam },
-        { provide: VerificationService, useValue: verification },
-      ],
+      providers: [{ provide: CrisisTeamService, useValue: crisisTeam }],
     }).compile();
 
     controller = module.get(CrisisTeamController);
@@ -74,25 +67,21 @@ describe("CrisisTeamController", () => {
     );
   });
 
-  it("creates a contact through the service after admin verification", async () => {
+  it("creates a contact through the service", async () => {
     const contact = { contact_id: 3, name_en: "Health" };
     crisisTeam.create.mockResolvedValue(contact);
 
     await expect(
-      controller.createCrisisTeamContact(
-        {
-          organization_id: 1,
-          name_fi: "Terveydenhuolto",
-          name_en: "Health",
-          role_fi: "Hoito",
-          role_en: "Care",
-          phone: "123",
-        },
-        "Bearer token"
-      )
+      controller.createCrisisTeamContact({
+        organization_id: 1,
+        name_fi: "Terveydenhuolto",
+        name_en: "Health",
+        role_fi: "Hoito",
+        role_en: "Care",
+        phone: "123",
+      })
     ).resolves.toBe(contact);
 
-    expect(verification.verifyAdminToken).toHaveBeenCalledWith("Bearer token");
     expect(crisisTeam.create).toHaveBeenCalledWith(
       1,
       "Terveydenhuolto",
@@ -104,9 +93,9 @@ describe("CrisisTeamController", () => {
   });
 
   it("rejects incomplete create data without calling the service", async () => {
-    await expect(
-      controller.createCrisisTeamContact({}, "Bearer token")
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.createCrisisTeamContact({})).rejects.toBeInstanceOf(
+      BadRequestException
+    );
     expect(crisisTeam.create).not.toHaveBeenCalled();
   });
 
@@ -114,17 +103,14 @@ describe("CrisisTeamController", () => {
     crisisTeam.create.mockRejectedValue(new Error("database down"));
 
     await expect(
-      controller.createCrisisTeamContact(
-        {
-          organization_id: 1,
-          name_fi: "Nimi",
-          name_en: "Name",
-          role_fi: "Rooli",
-          role_en: "Role",
-          phone: "123",
-        },
-        "Bearer token"
-      )
+      controller.createCrisisTeamContact({
+        organization_id: 1,
+        name_fi: "Nimi",
+        name_en: "Name",
+        role_fi: "Rooli",
+        role_en: "Role",
+        phone: "123",
+      })
     ).rejects.toThrow();
   });
 
@@ -133,17 +119,13 @@ describe("CrisisTeamController", () => {
     crisisTeam.update.mockResolvedValue(contact);
 
     await expect(
-      controller.updateCrisisTeamContact(
-        "3",
-        {
-          name_fi: "Terveydenhuolto",
-          name_en: "Health",
-          role_fi: "Hoito",
-          role_en: "Care",
-          phone: "123",
-        },
-        "Bearer token"
-      )
+      controller.updateCrisisTeamContact("3", {
+        name_fi: "Terveydenhuolto",
+        name_en: "Health",
+        role_fi: "Hoito",
+        role_en: "Care",
+        phone: "123",
+      })
     ).resolves.toEqual({ message: "Updated successfully", updated: contact });
     expect(crisisTeam.update).toHaveBeenCalledWith(
       3,
@@ -159,7 +141,7 @@ describe("CrisisTeamController", () => {
     crisisTeam.softDelete.mockResolvedValue(undefined);
 
     await expect(
-      controller.deleteCrisisTeamContact("99", "Bearer token")
+      controller.deleteCrisisTeamContact("99")
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -167,14 +149,15 @@ describe("CrisisTeamController", () => {
     const contact = { contact_id: 3 };
     crisisTeam.softDelete.mockResolvedValue(contact);
 
-    await expect(
-      controller.deleteCrisisTeamContact("3", "Bearer token")
-    ).resolves.toEqual({ message: "Deleted successfully", deleted: contact });
+    await expect(controller.deleteCrisisTeamContact("3")).resolves.toEqual({
+      message: "Deleted successfully",
+      deleted: contact,
+    });
   });
 
   it("rejects invalid update ids before calling the service", async () => {
     await expect(
-      controller.updateCrisisTeamContact("0", {}, "Bearer token")
+      controller.updateCrisisTeamContact("0", {})
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(crisisTeam.update).not.toHaveBeenCalled();
   });
@@ -183,23 +166,19 @@ describe("CrisisTeamController", () => {
     crisisTeam.update.mockResolvedValue(undefined);
 
     await expect(
-      controller.updateCrisisTeamContact(
-        "3",
-        {
-          name_fi: "Nimi",
-          name_en: "Name",
-          role_fi: "Rooli",
-          role_en: "Role",
-          phone: "123",
-        },
-        "Bearer token"
-      )
+      controller.updateCrisisTeamContact("3", {
+        name_fi: "Nimi",
+        name_en: "Name",
+        role_fi: "Rooli",
+        role_en: "Role",
+        phone: "123",
+      })
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it("rejects missing fields when updating a contact", async () => {
     await expect(
-      controller.updateCrisisTeamContact("3", {}, "Bearer token")
+      controller.updateCrisisTeamContact("3", {})
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(crisisTeam.update).not.toHaveBeenCalled();
   });

@@ -14,7 +14,6 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { QuizResultService } from "../services/quiz-result.service";
-import * as verification from "../utils/verification";
 import { QuizResultController } from "./quiz-result.controller";
 
 describe("QuizResultController", () => {
@@ -40,9 +39,6 @@ describe("QuizResultController", () => {
   });
 
   it("saves a result for the authenticated user", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
-    });
     quizResults.saveResult.mockResolvedValue({
       worldCompleted: true,
       bonusAwarded: true,
@@ -55,7 +51,7 @@ describe("QuizResultController", () => {
           correct_answers: 4,
           time_spent_seconds: 90,
         },
-        "Bearer token"
+        { email: "learner@example.com" }
       )
     ).resolves.toEqual({
       message: "Result saved successfully",
@@ -71,19 +67,16 @@ describe("QuizResultController", () => {
   });
 
   it("rejects missing result fields", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
-    });
-
     await expect(
-      controller.saveQuizResult({ quiz_id: 5 }, "Bearer token")
+      controller.saveQuizResult(
+        { quiz_id: 5 },
+        { email: "learner@example.com" }
+      )
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(quizResults.saveResult).not.toHaveBeenCalled();
   });
 
   it("rejects tokens without an email", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({});
-
     await expect(
       controller.saveQuizResult(
         {
@@ -91,15 +84,12 @@ describe("QuizResultController", () => {
           correct_answers: 4,
           time_spent_seconds: 90,
         },
-        "Bearer token"
+        {}
       )
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it("propagates missing-user or missing-quiz errors from the service", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
-    });
     quizResults.saveResult.mockRejectedValue(
       new NotFoundException({ error: "Quiz not found" })
     );
@@ -111,7 +101,7 @@ describe("QuizResultController", () => {
           correct_answers: 4,
           time_spent_seconds: 90,
         },
-        "Bearer token"
+        { email: "learner@example.com" }
       )
     ).rejects.toBeInstanceOf(NotFoundException);
   });

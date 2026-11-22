@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AuthModule } from "./auth/auth.module";
 import { AuthController } from "./controllers/auth.controller";
 import { CrisisTeamController } from "./controllers/crisis-team.controller";
 import { InfoController } from "./controllers/info.controller";
@@ -9,10 +10,11 @@ import { StatusController } from "./controllers/status.controller";
 import { UserController } from "./controllers/user.controller";
 import { WorldBonusController } from "./controllers/world-bonus.controller";
 import { WorldController } from "./controllers/world.controller";
+import { InfrastructureModule } from "./infrastructure/infrastructure.module";
 import { ServicesModule } from "./services/services.module";
 
 @Module({
-  imports: [ServicesModule],
+  imports: [InfrastructureModule, AuthModule, ServicesModule],
   controllers: [
     StatusController,
     AuthController,

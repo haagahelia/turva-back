@@ -9,7 +9,6 @@ import {
 } from "@jest/globals";
 import { HttpException, NotFoundException } from "@nestjs/common";
 import { UserService } from "../services/user.service";
-import * as verification from "../utils/verification";
 import { UserController } from "./user.controller";
 
 describe("UserController", () => {
@@ -33,10 +32,6 @@ describe("UserController", () => {
   });
 
   it("returns the authenticated user's profile", async () => {
-    jest.spyOn(verification, "verifyToken").mockReturnValue({
-      email: "learner@example.com",
-      username: "learner",
-    });
     users.findProfile.mockResolvedValue({
       user_id: 7,
       profile_name: "learner",
@@ -45,7 +40,12 @@ describe("UserController", () => {
       role: "admin",
     });
 
-    await expect(controller.getProfile("Bearer token")).resolves.toEqual({
+    await expect(
+      controller.getProfile({
+        email: "learner@example.com",
+        username: "learner",
+      })
+    ).resolves.toEqual({
       userId: 7,
       profileName: "learner",
       profilePictureUrl: "/learner.png",
@@ -59,24 +59,17 @@ describe("UserController", () => {
   });
 
   it("rejects token payloads without an email", async () => {
-    jest
-      .spyOn(verification, "verifyToken")
-      .mockReturnValue({ username: "learner" });
-
-    await expect(controller.getProfile("Bearer token")).rejects.toBeInstanceOf(
-      HttpException
-    );
+    await expect(
+      controller.getProfile({ username: "learner" })
+    ).rejects.toBeInstanceOf(HttpException);
     expect(users.findProfile).not.toHaveBeenCalled();
   });
 
   it("returns not found when the profile does not exist", async () => {
-    jest
-      .spyOn(verification, "verifyToken")
-      .mockReturnValue({ email: "missing@example.com" });
     users.findProfile.mockResolvedValue(undefined);
 
-    await expect(controller.getProfile("Bearer token")).rejects.toBeInstanceOf(
-      NotFoundException
-    );
+    await expect(
+      controller.getProfile({ email: "missing@example.com" })
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

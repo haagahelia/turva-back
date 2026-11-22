@@ -10,7 +10,6 @@ import {
   Param,
   Post,
   Put,
-  Headers,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -22,15 +21,13 @@ import {
 } from "@nestjs/swagger";
 
 import { CrisisTeamService } from "../services/crisis-team.service";
-import { VerificationService } from "../services/verification.service";
+import { Roles } from "../auth/decorators/roles.decorator";
 
 @Controller("crisis-team")
 @ApiTags("Crisis Team")
+@ApiBearerAuth("bearerAuth")
 export class CrisisTeamController {
-  constructor(
-    private readonly crisisTeam: CrisisTeamService,
-    private readonly verification: VerificationService
-  ) {}
+  constructor(private readonly crisisTeam: CrisisTeamService) {}
 
   @Get("/")
   @ApiOperation({
@@ -90,6 +87,7 @@ export class CrisisTeamController {
 
   @ApiBearerAuth("bearerAuth")
   @Delete("/:id")
+  @Roles("admin")
   @ApiOperation({
     summary: "Soft delete crisis team contact by ID",
     description: "Soft deletes the contact with the supplied ID",
@@ -105,12 +103,8 @@ export class CrisisTeamController {
   @ApiResponse({ status: 401, description: "Missing or invalid token" })
   @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 500, description: "Delete failed" })
-  async deleteCrisisTeamContact(
-    @Param("id") id: string,
-    @Headers("authorization") authorization?: string
-  ) {
+  async deleteCrisisTeamContact(@Param("id") id: string) {
     try {
-      await this.verification.verifyAdminToken(authorization);
       const numericId = Number(id);
 
       if (!Number.isInteger(numericId) || numericId <= 0) {
@@ -130,6 +124,7 @@ export class CrisisTeamController {
   }
 
   @Post("/")
+  @Roles("admin")
   @ApiOperation({
     summary: "Add new crisis team contact to db",
     description:
@@ -163,12 +158,8 @@ export class CrisisTeamController {
   @ApiResponse({ status: 403, description: "Admin access required" })
   @ApiResponse({ status: 500, description: "Insert failed" })
   @ApiBearerAuth("bearerAuth")
-  async createCrisisTeamContact(
-    @Body() body: Record<string, any>,
-    @Headers("authorization") authorization?: string
-  ) {
+  async createCrisisTeamContact(@Body() body: Record<string, any>) {
     try {
-      await this.verification.verifyAdminToken(authorization);
       const { organization_id, name_fi, name_en, role_fi, role_en, phone } =
         body;
       if (
@@ -202,6 +193,7 @@ export class CrisisTeamController {
 
   @ApiBearerAuth("bearerAuth")
   @Put("/:id")
+  @Roles("admin")
   @ApiOperation({
     summary: "Update crisis team contact",
     description: "Updates the contact with the supplied ID",
@@ -235,11 +227,9 @@ export class CrisisTeamController {
   @ApiResponse({ status: 500, description: "Update failed" })
   async updateCrisisTeamContact(
     @Param("id") id: string,
-    @Body() body: Record<string, any>,
-    @Headers("authorization") authorization?: string
+    @Body() body: Record<string, any>
   ) {
     try {
-      await this.verification.verifyAdminToken(authorization);
       const numericId = Number(id);
 
       if (!Number.isInteger(numericId) || numericId <= 0) {
