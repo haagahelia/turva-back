@@ -28,7 +28,7 @@ export const emailOtps = pgTable("email_otps", {
   created_at: timestamp("created_at").defaultNow(),
 });
 
-export const organizations = pgTable("Organization", {
+export const organizations = pgTable("organization", {
   organization_id: serial("organization_id").primaryKey(),
   organization_name: varchar("organization_name", { length: 255 }).notNull(),
   logo_url: varchar("logo_url", { length: 500 }),
@@ -38,7 +38,7 @@ export const organizations = pgTable("Organization", {
 });
 
 export const users = pgTable(
-  "TurvaUser",
+  "turvauser",
   {
     user_id: serial("user_id").primaryKey(),
     role: varchar("role", { length: 20 })
@@ -55,12 +55,12 @@ export const users = pgTable(
     deleted_at: timestamp("deleted_at"),
   },
   (table) => [
-    unique("TurvaUser_profile_name_key").on(table.profile_name),
+    unique("turvauser_profile_name_key").on(table.profile_name),
     check("turvauser_role_check", sql`${table.role} IN ('user', 'admin')`),
   ]
 );
 
-export const appPages = pgTable("AppPage", {
+export const appPages = pgTable("apppage", {
   page_id: serial("page_id").primaryKey(),
   organization_id: integer("organization_id")
     .notNull()
@@ -71,7 +71,7 @@ export const appPages = pgTable("AppPage", {
   deleted_at: timestamp("deleted_at"),
 });
 
-export const worlds = pgTable("World", {
+export const worlds = pgTable("world", {
   world_id: serial("world_id").primaryKey(),
   organization_id: integer("organization_id")
     .notNull()
@@ -83,7 +83,7 @@ export const worlds = pgTable("World", {
   deleted_at: timestamp("deleted_at"),
 });
 
-export const quizzes = pgTable("Quiz", {
+export const quizzes = pgTable("quiz", {
   quiz_id: serial("quiz_id").primaryKey(),
   world_id: integer("world_id")
     .notNull()
@@ -97,7 +97,7 @@ export const quizzes = pgTable("Quiz", {
 });
 
 export const completedQuizzes = pgTable(
-  "User_Completed_Quiz",
+  "user_completed_quiz",
   {
     user_id: integer("user_id")
       .notNull()
@@ -112,7 +112,7 @@ export const completedQuizzes = pgTable(
   (table) => [primaryKey({ columns: [table.user_id, table.quiz_id] })]
 );
 
-export const crisisTeam = pgTable("CrisisTeam", {
+export const crisisTeam = pgTable("crisisteam", {
   contact_id: serial("contact_id").primaryKey(),
   organization_id: integer("organization_id")
     .notNull()
@@ -128,7 +128,7 @@ export const crisisTeam = pgTable("CrisisTeam", {
 });
 
 export const completedWorlds = pgTable(
-  "User_Completed_World",
+  "user_completed_world",
   {
     user_id: integer("user_id")
       .notNull()
@@ -142,7 +142,7 @@ export const completedWorlds = pgTable(
 );
 
 export const physicalRewards = pgTable(
-  "Physical_Reward",
+  "physical_reward",
   {
     reward_id: serial("reward_id").primaryKey(),
     user_id: integer("user_id")
@@ -152,5 +152,5 @@ export const physicalRewards = pgTable(
     claimed_at: timestamp("claimed_at"),
     created_at: timestamp("created_at").defaultNow(),
   },
-  (table) => [unique("Physical_Reward_reward_code_key").on(table.reward_code)]
+  (table) => [unique("physical_reward_reward_code_key").on(table.reward_code)]
 );

@@ -10,7 +10,7 @@ let adminUserId: number;
 let adminToken: string;
 
 const request = (server: ReturnType<INestApplication["getHttpServer"]>) =>
-  supertest(server).set("Authorization", `Bearer ${adminToken}`);
+  supertest.agent(server).set("Authorization", `Bearer ${adminToken}`);
 
 beforeAll(async () => {
   app = await createApp();

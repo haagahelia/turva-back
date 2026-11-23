@@ -12,15 +12,15 @@ describe("code-first database schema", () => {
       expect.arrayContaining([
         "info",
         "email_otps",
-        "Organization",
-        "TurvaUser",
-        "AppPage",
-        "World",
-        "Quiz",
-        "User_Completed_Quiz",
-        "CrisisTeam",
-        "User_Completed_World",
-        "Physical_Reward",
+        "organization",
+        "turvauser",
+        "apppage",
+        "world",
+        "quiz",
+        "user_completed_quiz",
+        "crisisteam",
+        "user_completed_world",
+        "physical_reward",
       ])
     );
   });

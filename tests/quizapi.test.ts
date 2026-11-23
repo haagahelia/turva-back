@@ -2,6 +2,7 @@ import { createApp } from "./create-app";
 import supertest, { Response } from "supertest";
 import { JwtService } from "@nestjs/jwt";
 import { pool } from "../src/config/db";
+import { QuizService } from "../src/services/quiz.service";
 import { INestApplication } from "@nestjs/common";
 import {
   beforeAll,
@@ -27,7 +28,7 @@ let regularUserToken: string;
 let regularUserId: number;
 
 const request = (server: ReturnType<INestApplication["getHttpServer"]>) =>
-  supertest(server).set("Authorization", `Bearer ${adminToken}`);
+  supertest.agent(server).set("Authorization", `Bearer ${adminToken}`);
 
 beforeAll(async () => {
   app = await createApp();
@@ -591,11 +592,13 @@ describe("Quiz api integration tests", () => {
       });
 
       it('Verify that "created_at" property does not change', async () => {
+        // created_at has no time zone. Read it as UTC milliseconds, like
+        // Drizzle does, so the test does not depend on the machine's time zone.
         const result = await pool.query(
-          "SELECT created_at FROM Quiz WHERE quiz_id = $1",
+          "SELECT floor(extract(epoch FROM created_at) * 1000) AS created_ms FROM Quiz WHERE quiz_id = $1",
           [testQuizId]
         );
-        const oldCreatedAt = new Date(result.rows[0].created_at).getTime();
+        const oldCreatedAt = Number(result.rows[0].created_ms);
 
         const res: Response = await request(app.getHttpServer())
           .put(`/api/quiz/${testQuizId}`)
@@ -905,11 +908,11 @@ describe("Quiz api integration tests", () => {
 
     describe("Error handling", () => {
       it("Should return 500 when database error occurs", async () => {
-        const mockQuery = jest
-          .spyOn(pool, "query")
-          .mockRejectedValueOnce(
-            new Error("Database connection failed") as never
-          );
+        // Fail the delete itself. Mocking pool.query would fail the admin
+        // check in RolesGuard first, before the controller is reached.
+        const mockDelete = jest
+          .spyOn(app.get(QuizService), "softDelete")
+          .mockRejectedValueOnce(new Error("Database connection failed"));
 
         const res: Response = await request(app.getHttpServer())
           .delete(`/api/quiz/${deleteTestQuizId}`)
@@ -919,7 +922,7 @@ describe("Quiz api integration tests", () => {
         expect(res.body).toHaveProperty("error");
         expect(res.body.error).toBe("Delete failed");
 
-        mockQuery.mockRestore();
+        mockDelete.mockRestore();
       });
     });
 
